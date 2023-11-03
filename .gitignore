@@ -10,14 +10,15 @@
 *.d
 *.a
 
-
-
 # Logs and databases #
 ######################
 *.log
 *.sql
 *.sqlite
 
+#Directories#
+#############
+build/
 
 *.lib
 *.elf
@@ -50,3 +51,4 @@ lint*.txt
 *.bak
 *.qlc
 JLink*.*
+
