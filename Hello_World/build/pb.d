@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/pb.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/pb.o: \
  C:/MaximSDK/Libraries/MiscDrivers/PushButton/pb.c \
  c:\maximsdk\tools\gnutools\10.3\lib\gcc\arm-none-eabi\10.3.1\include\stddef.h \
  C:/MaximSDK/Libraries/Boards/MAX78000/EvKit_V1/Include/board.h \

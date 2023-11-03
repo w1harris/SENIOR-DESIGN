@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/tft_ssd2119.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/tft_ssd2119.o: \
  C:/MaximSDK/Libraries/MiscDrivers/Display/tft_ssd2119.c \
  c:\maximsdk\tools\gnutools\10.3\lib\gcc\arm-none-eabi\10.3.1\include\stddef.h \
  c:\maximsdk\tools\gnutools\10.3\lib\gcc\arm-none-eabi\10.3.1\include\stdint.h \

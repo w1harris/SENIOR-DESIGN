@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/board.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/board.o: \
  C:/MaximSDK/Libraries/Boards/MAX78000/EvKit_V1/Source/board.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\stdio.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\_ansi.h \

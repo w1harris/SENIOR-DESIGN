@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/ov7692.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/ov7692.o: \
  C:/MaximSDK/Libraries/MiscDrivers/Camera/ov7692.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\stdio.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\_ansi.h \

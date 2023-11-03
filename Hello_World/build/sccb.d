@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/sccb.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/sccb.o: \
  C:/MaximSDK/Libraries/MiscDrivers/Camera/sccb.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\stdio.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\_ansi.h \

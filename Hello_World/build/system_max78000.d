@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/system_max78000.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/system_max78000.o: \
  C:/MaximSDK/Libraries/CMSIS/Device/Maxim/MAX78000/Source/system_max78000.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\string.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\_ansi.h \

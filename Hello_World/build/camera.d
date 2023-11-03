@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/camera.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/camera.o: \
  C:/MaximSDK/Libraries/MiscDrivers/Camera/camera.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\stdlib.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\machine\ieeefp.h \

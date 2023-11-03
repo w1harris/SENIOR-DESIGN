@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/led.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/led.o: \
  C:/MaximSDK/Libraries/MiscDrivers/LED/led.c \
  C:/MaximSDK/Libraries/Boards/MAX78000/EvKit_V1/Include/board.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\stdio.h \

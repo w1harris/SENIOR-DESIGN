@@ -1,4 +1,4 @@
-C:/MaximSDK/Examples/MAX78000/Hello_World/build/stdio.o: \
+C:/Users/Ian/Documents/Github/Senior_Design/Hello_World/build/stdio.o: \
  C:/MaximSDK/Libraries/MiscDrivers/stdio.c \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\sys\errno.h \
  c:\maximsdk\tools\gnutools\10.3\arm-none-eabi\include\sys\reent.h \
