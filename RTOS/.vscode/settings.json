@@ -83,6 +83,7 @@
     ],
     "C_Cpp.default.forcedInclude": [
         "${workspaceFolder}/build/project_defines.h"
-    ]
+    ],
+    "C_Cpp.default.compilerPath": "C:/MaximSDK/Tools/GNUTools/10.3/bin/arm-none-eabi-gcc.exe"
 }
 

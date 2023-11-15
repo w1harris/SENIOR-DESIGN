@@ -99,6 +99,7 @@ extern void wutHitSnooze(void);
  *
  * =======================================================
  */
+
 void vTask0(void *pvParameters)
 {
     TickType_t xLastWakeTime;
