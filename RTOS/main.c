@@ -39,6 +39,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <mxc.h>
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "portmacro.h"
@@ -51,6 +52,9 @@
 #include "lp.h"
 #include "led.h"
 #include "board.h"
+
+static uint16_t adc_val;
+
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -191,6 +195,31 @@ void vTickTockTask(void *pvParameters)
                ticks / configTICK_RATE_HZ, disable_tickless ? "disabled" : "ENABLED");
         vTaskDelayUntil(&xLastWakeTime, (configTICK_RATE_HZ * 10));
     }
+}
+
+
+//vADCTask----------------------------------------------------
+//This task gets ADC readings for ECG and converts the readings
+//into BPM
+void vADCTask(void *pvParameters){
+    MXC_ADC_StartConversion(ADC_CHANNEL);//Starting ADC conversion
+    
+    static uint8_t overflow;
+    overflow = (MXC_ADC_GetData(&adc_val) == E_OVERFLOW ? 1 : 0);
+
+    /* Display results on console, display asterisk if overflow */
+    printf("%d: 0x%04x%s\n\n", ADC_CHANNEL, adc_val, overflow ? "*" : " ");
+
+    /* Determine if programmable limits on AIN3 were exceeded */
+    if (MXC_ADC_GetFlags() & (MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF)) {
+        printf(" %s Limit on AIN0 ",
+        (MXC_ADC_GetFlags() & MXC_F_ADC_INTR_LO_LIMIT_IF) ? "Low" : "High");
+        MXC_ADC_ClearFlags(MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF);
+    } else {
+        printf("                   ");
+    }
+
+    printf("\n");
 }
 
 /***** Functions *****/
@@ -381,6 +410,22 @@ int main(void)
 
     /* Enable incoming characters */
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
+
+    //ADC Setup
+    /* Initialize ADC */
+    if (MXC_ADC_Init() != E_NO_ERROR) {
+        printf("Error Bad Parameter\n");
+        while (1) {}
+    }
+    
+    /* Set up LIMIT0 to monitor high trip points */
+    while (MXC_ADC->status & (MXC_F_ADC_STATUS_ACTIVE | MXC_F_ADC_STATUS_AFE_PWR_UP_ACTIVE)) {}
+    MXC_ADC_SetMonitorChannel(MXC_ADC_MONITOR_3, ADC_CHANNEL);
+    MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0x300);//Measuring QRS intervals to get BPM and max value is around 800
+    MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 0);//Disabling low trip point
+    MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
+    MXC_ADC_ClearFlags(MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF);//Clearing flags before ADC conversion
+
 
 #if configUSE_TICKLESS_IDLE
 
