@@ -52,9 +52,12 @@
 #include "lp.h"
 #include "led.h"
 #include "board.h"
+#include "sensors.h"
 
-static uint16_t adc_val;
-
+//ECG
+#define ADC_WAIT ((portTickType)15)//Used to make the ADC task wait 15 ticks
+extern volatile unsigned int beats;
+unsigned int oldBeat;
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -203,24 +206,19 @@ void vTickTockTask(void *pvParameters)
 //This task gets ADC readings for ECG and converts the readings
 //into BPM
 void vADCTask(void *pvParameters){
-    MXC_ADC_StartConversion(ADC_CHANNEL);//Starting ADC conversion
-    
-    static uint8_t overflow;
-    overflow = (MXC_ADC_GetData(&adc_val) == E_OVERFLOW ? 1 : 0);
+    TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
+    TickType_t ticks = 0;
 
-    /* Display results on console, display asterisk if overflow */
-    printf("%d: 0x%04x%s\n\n", ADC_CHANNEL, adc_val, overflow ? "*" : " ");
-
-    /* Determine if programmable limits on AIN3 were exceeded */
-    if (MXC_ADC_GetFlags() & (MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF)) {
-        printf(" %s Limit on AIN0 ",
-        (MXC_ADC_GetFlags() & MXC_F_ADC_INTR_LO_LIMIT_IF) ? "Low" : "High");
-        MXC_ADC_ClearFlags(MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF);
-    } else {
-        printf("                   ");
+    while(1){
+        convertADC();
+        ticks = xTaskGetTickCount();//Gets total number of ticks since system initialization
+        if (oldBeat != beats){
+            printf("Total beats: %d\n", beats);
+            printf("Current bpm: %d\n", 60*beats/(ticks/configTICK_RATE_HZ));
+            oldBeat = beats;
+        }
+        xTaskDelayUntil(&lastWakeTime, ADC_WAIT);//Delaying this task for adcFrequency(10 ticks)
     }
-
-    printf("\n");
 }
 
 /***** Functions *****/
@@ -413,20 +411,7 @@ int main(void)
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
 
     //ADC Setup
-    /* Initialize ADC */
-    if (MXC_ADC_Init() != E_NO_ERROR) {
-        printf("Error Bad Parameter\n");
-        while (1) {}
-    }
-    
-    /* Set up LIMIT0 to monitor high trip points */
-    while (MXC_ADC->status & (MXC_F_ADC_STATUS_ACTIVE | MXC_F_ADC_STATUS_AFE_PWR_UP_ACTIVE)) {}
-    MXC_ADC_SetMonitorChannel(MXC_ADC_MONITOR_3, ADC_CHANNEL);
-    MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0x300);//Measuring QRS intervals to get BPM and max value is around 800
-    MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 0);//Disabling low trip point
-    MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
-    MXC_ADC_ClearFlags(MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF);//Clearing flags before ADC conversion
-
+    initADC();
 
 #if configUSE_TICKLESS_IDLE
 
@@ -472,19 +457,18 @@ int main(void)
         printf("xSemaphoreCreateMutex failed to create a mutex.\n");
     } else {
         /* Configure task */
-        if ((xTaskCreate(vTask0, (const char *)"Task0", configMINIMAL_STACK_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, NULL) != pdPASS) ||
-            (xTaskCreate(vTask1, (const char *)"Task1", configMINIMAL_STACK_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, NULL) != pdPASS) ||
-            (xTaskCreate(vTickTockTask, (const char *)"TickTock", 2 * configMINIMAL_STACK_SIZE,
+        if ((xTaskCreate(vTickTockTask, (const char *)"TickTock", 2 * configMINIMAL_STACK_SIZE,
                          NULL, tskIDLE_PRIORITY + 2, NULL) != pdPASS) ||
             (xTaskCreate(vCmdLineTask, (const char *)"CmdLineTask",
                          configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, &cmd_task_id) != pdPASS)) {
+                         tskIDLE_PRIORITY + 1, &cmd_task_id) != pdPASS) ||
+            (xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,
+                         tskIDLE_PRIORITY + 2, NULL) != pdPASS)) {
             printf("xTaskCreate() failed to create a task.\n");
         } else {
             /* Start scheduler */
             printf("Starting scheduler.\n");
+            NVIC_EnableIRQ(ADC_IRQn);//Enabling ADC ISR
             vTaskStartScheduler();
         }
     }
