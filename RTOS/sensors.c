@@ -3,8 +3,12 @@
 
 volatile unsigned int beats;//Variable to keep track of heart beats
 
+void initI2C(){
+    MXC_I2C_Init(I2C_MASTER, 1, 0);
+    MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);
+    
+}
 
-//Function to initialize ADC
 void initADC(){
     MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_CLK_EN;//Disabling clock
     MXC_GCR->pclkdiv |= MXC_F_GCR_PCLKDIV_ADCFRQ;//Setting ADC clock freq to 3,333,333(See user manual for options)
@@ -34,7 +38,6 @@ void initADC(){
     MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
 }
 
-//Function to start ADC conversion
 void convertADC(){
     MXC_ADC->ctrl |= MXC_F_ADC_CTRL_START;//Starting ADC converison. Interrupt will be called once done
     return;
