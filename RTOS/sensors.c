@@ -5,8 +5,33 @@ volatile unsigned int beats;//Variable to keep track of heart beats
 
 void initI2C(){
     MXC_I2C_Init(I2C_MASTER, 1, 0);
-    MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);
-    
+    //MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);Already set in Init function (100kHz)
+    return;
+}
+
+void I2C_SCAN(){//Called from CLI-commands.c from I2CScan command
+    u_int8_t address;
+    int numDevices = 0;
+
+    mxc_i2c_req_t reqMaster;//Controlling I2C master registers
+    reqMaster.i2c = I2C_MASTER;
+    reqMaster.tx_buf = NULL;
+    reqMaster.tx_len = 0;
+    reqMaster.rx_buf = NULL;
+    reqMaster.rx_len = 0;
+    reqMaster.restart = 0;
+    reqMaster.callback = NULL;
+
+    for (address = 1; address < 127; address++){
+        reqMaster.addr = address;//Updating address
+        if ((MXC_I2C_MasterTransaction(&reqMaster)) == 0) {
+            printf("Found I2C device at 0x%02X\n", address);
+            numDevices++;
+        }
+    }
+
+    printf("%d total devices found\n", numDevices);
+    return;
 }
 
 void initADC(){
@@ -36,6 +61,7 @@ void initADC(){
     MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0);
     MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 250);
     MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
+    return;
 }
 
 void convertADC(){

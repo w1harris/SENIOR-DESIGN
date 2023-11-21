@@ -81,7 +81,15 @@
 
 #include "wut_regs.h"
 
+#include "sensors.h"
+
 extern int disable_tickless;
+
+/*
+ * Defines a command which reports I2C addresses.
+ *
+ */
+static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command that returns a table showing the state of each task at the
@@ -160,6 +168,13 @@ static const CLI_Command_Definition_t xParameterEcho = {
     -1 /* The user can enter any number of commands. */
 };
 
+static const CLI_Command_Definition_t xI2CScan = {
+    "I2C_Scan",
+    "\r\nI2C_Scan:\r\n Scans the I2C bus for device addresses\r\n\r\n",
+    prvI2CScanCommand,
+    0//No parameters expected
+};
+
 /*-----------------------------------------------------------*/
 
 void vRegisterCLICommands(void)
@@ -170,8 +185,16 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xTickless);
     FreeRTOS_CLIRegisterCommand(&xThreeParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xParameterEcho);
+    FreeRTOS_CLIRegisterCommand(&xI2CScan);
 }
 /*-----------------------------------------------------------*/
+
+static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    printf("Scanning BUS...\n");
+    I2C_SCAN();
+
+    return pdFALSE;
+}
 
 static BaseType_t prvTaskStatsCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
                                       const char *pcCommandString)

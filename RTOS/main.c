@@ -142,6 +142,9 @@ int main(void)
     //ADC Setup
     initADC();
 
+    //I2C Master Setup
+    initI2C();
+
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);
     printf("SystemCoreClock = %d\n", SystemCoreClock);

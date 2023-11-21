@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 #include <mxc.h>
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
