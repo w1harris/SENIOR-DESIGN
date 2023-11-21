@@ -82,7 +82,7 @@ void convert(){
 int main(void)
 {
     printf("\n******************** ADC Example ********************\n");
-    printf("\nADC readings are taken on ADC channel %d every 250ms\n", ADC_CHANNEL);
+    printf("\nADC readings are taken on ADC channel %d every 10ms\n", ADC_CHANNEL);
     printf("and are subsequently printed to the terminal.\n\n");
     
     MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_CLK_EN;//Disabling clock
