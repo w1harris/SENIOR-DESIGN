@@ -105,6 +105,16 @@ void vTickTockTask(void *pvParameters){
     }
 }
 
+void vIMUTask(void *pvParameters){
+    TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
+
+    while(1){
+        getIMU(TRUE);
+        vTaskDelayUntil(&lastWakeTime, configTICK_RATE_HZ/2);//Waiting 500 ticks
+    }
+
+}
+
 void vADCTask(void *pvParameters){
     TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
     TickType_t ticks = 0;

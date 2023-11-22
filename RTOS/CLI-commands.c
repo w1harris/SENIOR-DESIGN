@@ -82,8 +82,15 @@
 #include "wut_regs.h"
 
 #include "sensors.h"
+#include "tasks.h"
 
 extern int disable_tickless;
+
+/*
+ * Defines a command which initizalizes the IMU and begins to automatically take readings
+ *
+ */
+static BaseType_t prvIMUStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command which reports I2C addresses.
@@ -175,6 +182,13 @@ static const CLI_Command_Definition_t xI2CScan = {
     0//No parameters expected
 };
 
+static const CLI_Command_Definition_t xIMUStart = {
+    "IMU_Start",
+    "\r\nIMU_Start:\r\n IMU startup and gets active readings\r\n\r\n",
+    prvIMUStartCommand,
+    0//No parameters expected(could configure this to take in parameters which configure the scale settings on the IMU)
+};
+
 /*-----------------------------------------------------------*/
 
 void vRegisterCLICommands(void)
@@ -186,8 +200,20 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xThreeParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xI2CScan);
+    FreeRTOS_CLIRegisterCommand(&xIMUStart);
 }
 /*-----------------------------------------------------------*/
+
+static BaseType_t prvIMUStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    printf("Initializing IMU...\n");
+    initIMU();
+    printf("Starting IMU readings\n");
+    if(!xTaskCreate(vIMUTask, (const char*)"IMUTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 1, NULL)){//Creating IMUTask
+        printf("ERROR creating IMU task\n");
+    }
+    
+    return pdFALSE;
+}
 
 static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Scanning BUS...\n");

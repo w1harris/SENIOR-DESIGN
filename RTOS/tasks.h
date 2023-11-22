@@ -33,6 +33,14 @@ void vTask1(void *pvParameters);
  */
 void vTickTockTask(void *pvParameters);
 
+/* =| vIMUTask |============================================
+ *
+ * This task gets IMU readings and prints them to console
+ * 
+ * =======================================================
+ */
+void vIMUTask(void *pvParameters);
+
 /* =| vADCTask |============================================
  *
  * This task gets ADC readings for ECG and converts the readings
