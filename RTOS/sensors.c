@@ -6,7 +6,36 @@ volatile unsigned int beats;//Variable to keep track of heart beats
 void initI2C(){
     MXC_I2C_Init(I2C_MASTER, 1, 0);
     //MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);Already set in Init function (100kHz)
+    initIMU();
     return;
+}
+
+void initIMU(){
+    uint8_t tx_buf[1] = {WHO_AM_I};//Transmit buffer
+    uint8_t rx_buf[1] = {0};//Receive buffer
+
+    mxc_i2c_req_t reqMaster;//Controlling I2C master registers
+
+    reqMaster.i2c = I2C_MASTER;
+    reqMaster.addr = IMU_AccelGyro_ADDR;
+    reqMaster.tx_buf = tx_buf;
+    reqMaster.tx_len = sizeof(tx_buf); 
+    reqMaster.rx_buf = rx_buf;
+    reqMaster.rx_len = 1;
+    reqMaster.restart = 1;
+
+    if (!MXC_I2C_MasterTransaction(&reqMaster)){
+        if(rx_buf[0] != IMU_AccelGyro_WHOAMI){
+            printf("Accel & Gyro I2C ERROR\n");
+        }
+    }
+
+    reqMaster.addr = IMU_Mag_ADDR;
+    if (!MXC_I2C_MasterTransaction(&reqMaster)){
+        if(rx_buf[0] != IMU_Mag_WHOAMI){
+            printf("Magnometer I2C ERROR\n");
+        }
+    }
 }
 
 void I2C_SCAN(){//Called from CLI-commands.c from I2CScan command
