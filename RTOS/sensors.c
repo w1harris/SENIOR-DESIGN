@@ -5,6 +5,10 @@
 volatile unsigned int beats;//Variable to keep track of heart beats
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
+IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
+    IMU_Accel_Range4G, IMU_Gyro_Range500, IMU_Mag_Range4Gauss, //Setting default values
+    IMU_AccelGyro_ODR14, IMU_Gyro_LPower, IMU_Mag_LPower
+};
 
 void initI2C(){
     MXC_I2C_Init(I2C_MASTER, 1, 0);
@@ -36,25 +40,26 @@ void initIMU(){
     //Configuring IMU control registers
     reqMaster.addr = IMU_AccelGyro_ADDR;
     readIMU(CTRL_REG6_XL, rx_buf);
-    writeIMU(CTRL_REG6_XL, *rx_buf | IMU_Accel_Range4G);//Setting accelerometer mode
+    writeIMU(CTRL_REG6_XL, *rx_buf | imuSetting.accelRange);//Setting accelerometer mode
 
     readIMU(CTRL_REG1_G, rx_buf);
-    writeIMU(CTRL_REG1_G, *rx_buf | IMU_Gyro_Range500);//Setting gyroscope mode
+    writeIMU(CTRL_REG1_G, *rx_buf | imuSetting.gyroRange);//Setting gyroscope mode
 
     //Low power mode
     readIMU(CTRL_REG3_G, rx_buf);
-    writeIMU(CTRL_REG3_G, *rx_buf | IMU_Gyro_LPower);//Enabling gyroscope low power mode
+    writeIMU(CTRL_REG3_G, *rx_buf | imuSetting.gyroPower);//Enabling gyroscope low power mode
 
     //Setting accelerometer & gyroscope ODR
     readIMU(CTRL_REG1_G, rx_buf);
-    writeIMU(CTRL_REG1_G, *rx_buf | IMU_AccelGyro_ODR14);//Setting ODR to 14.9Hz
+    writeIMU(CTRL_REG1_G, *rx_buf | imuSetting.accelgyroODR);//Setting ODR to 14.9Hz
 
     reqMaster.addr = IMU_Mag_ADDR;//Changing to Magnetometer to edit regs
     readIMU(CTRL_REG2_M, rx_buf);
-    writeIMU(CTRL_REG2_M, *rx_buf | IMU_Mag_Range4Gauss);//Setting Magnetometer mode
+    writeIMU(CTRL_REG2_M, *rx_buf | imuSetting.magRange);//Setting Magnetometer mode
 
     readIMU(CTRL_REG1_M, rx_buf);
-    writeIMU(CTRL_REG1_M, *rx_buf | IMU_Mag_LPower);//Setting Magnetometer performance mode
+    writeIMU(CTRL_REG1_M, *rx_buf | imuSetting.magPower);//Setting Magnetometer performance mode
+
 }
 
 int readIMU(uint8_t reg, uint8_t *data){
@@ -89,17 +94,53 @@ void getIMU(uint8_t magnetometer){
     reqMaster.rx_len = rx_len;
 
     if(!MXC_I2C_MasterTransaction(&reqMaster)){//IMU will automatically cycle through the Accel & Gyro output registers. All register values are stored in rx_buf
-        uint16_t combined_buf[(rx_len/2) + 1];//Creating a combined buffer to hold the 16 bit register values
+        float combined_buf[(rx_len/2) + 1];//Creating a combined buffer to hold the 16 bit register values
 
         for (int i = 0; i < rx_len/2; i++){//Assembling combined buffer
             combined_buf[i] = *rx_buf;//Storing LSBs
             rx_buf++;//Incrementing pointer
             combined_buf[i] = combined_buf[i] + (*rx_buf << 8);//Left shifting the MSBs
+
         }
 
-        printf("---Gyroscope readings---\nX: %d\nY: %d\nZ: %d\n---Accelerometer readings---\nX: %d\nY: %d\nZ: %d\n", 
-        combined_buf[0], combined_buf[1],
-        combined_buf[2], combined_buf[3], combined_buf[4], combined_buf[5]);
+        //Formatting output
+        float mult = 0;
+        switch(imuSetting.accelRange){
+            case IMU_Accel_Range2G:
+                mult = IMU_Accel_MG_LSB_2G;
+                break;
+            case IMU_Accel_Range4G:
+                mult = IMU_Accel_MG_LSB_4G;
+                break;
+            case IMU_Accel_Range8G:
+                mult = IMU_Accel_MG_LSB_8G;
+                break;
+            case IMU_Accel_Range16G:
+                mult= IMU_Accel_MG_LSB_16G;
+                break;
+        }
+        mult /= 1000;
+        for (int i = 0; i < 3; i++) combined_buf[i] *= mult;
+
+        switch(imuSetting.gyroRange){
+            case IMU_Gyro_Range245:
+                mult = IMU_Gyro_DPS_DIGIT_245DPS;
+                break;
+            case IMU_Gyro_Range500:
+                mult = IMU_Gyro_DPS_DIGIT_500DPS;
+                break;
+            case IMU_Gyro_Range2000:
+                mult = IMU_Gyro_DPS_DIGIT_2000DPS;
+                break;
+        }
+        mult /= 1000;
+        for (int i = 3; i < 6; i++) combined_buf[i] *= mult;
+        //Done formatting Accel and Gyro output
+
+        //Printing
+        printf("---Gyroscope readings---\nX: %.2f dps\nY: %.2f dps\nZ: %.2f dps\n---Accelerometer readings---\nX: %.2f m/s^2\nY: %.2f m/s^2\nZ: %.2f m/s^2\n", 
+        (double)combined_buf[0], (double)combined_buf[1],
+        (double)combined_buf[2], (double)combined_buf[3], (double)combined_buf[4], (double)combined_buf[5]);
 
         if (magnetometer){//Magnetometer output register reads
 
@@ -126,8 +167,28 @@ void getIMU(uint8_t magnetometer){
                 combined_buf[i] = combined_buf[i] + (*rx_buf << 8);//Left shifting the MSBs
             }
 
-            printf("---Magnetometer readings---\nX: %d\nY: %d\nZ: %d\n", 
-            combined_buf[0], combined_buf[1], combined_buf[3]);
+            //Formatting output
+            switch(imuSetting.gyroRange){
+                case IMU_Mag_Range4Gauss:
+                    mult = IMU_Mag_MGAUSS_4GAUSS;
+                    break;
+                case IMU_Mag_Range8Gauss:
+                    mult = IMU_Mag_MGAUSS_8GAUSS;
+                    break;
+                case IMU_Mag_Range12Gauss:
+                    mult = IMU_Mag_MGAUSS_12GAUSS;
+                    break;
+                case IMU_Mag_Range16Gauss:
+                    mult = IMU_Mag_MGAUSS_16GAUSS;
+                    break;
+            }
+            mult /= 1000;
+            for (int i = 0; i < 3; i++) combined_buf[i] *= mult;
+            //Done formatting magnetometer output
+
+            //Printing
+            printf("---Magnetometer readings---\nX: %.2f gauss\nY: %.2f gauss\nZ: %.2f gauss\n", 
+            (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
         }
         rx_buf = buffer_base; 
     } else printf("ERROR getting data\n");

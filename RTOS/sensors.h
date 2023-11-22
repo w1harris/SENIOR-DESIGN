@@ -26,11 +26,22 @@
 #define IMU_Accel_Range8G  (0b00011000)
 #define IMU_Accel_Range16G (0b00001000)
 
+// Linear Acceleration: mg per LSB
+#define IMU_Accel_MG_LSB_2G (0.061F)
+#define IMU_Accel_MG_LSB_4G (0.122F)
+#define IMU_Accel_MG_LSB_8G (0.244F)
+#define IMU_Accel_MG_LSB_16G (0.732F)
+
 //IMU gyroscope macros
 #define IMU_Gyro_Range245  (0b00000000)
 #define IMU_Gyro_Range500  (0b00001000)
 #define IMU_Gyro_Range2000 (0b00011000)
 #define IMU_Gyro_LPower    (0b10000000)
+
+// Angular Rate: dps per LSB
+#define IMU_Gyro_DPS_DIGIT_245DPS (0.00875F)
+#define IMU_Gyro_DPS_DIGIT_500DPS (0.01750F)
+#define IMU_Gyro_DPS_DIGIT_2000DPS (0.07000F)
 
 //Accel & Gyro ODR low power modes
 #define IMU_AccelGyro_ODR14  (0b00100000)
@@ -46,6 +57,12 @@
 #define IMU_Mag_MedPerf      (0b00100000)
 #define IMU_Mag_HighPerf     (0b01000000)
 #define IMU_Mag_UltraPerf    (0b01100000)
+
+// Magnetic Field Strength: gauss range
+#define IMU_Mag_MGAUSS_4GAUSS (0.14F)
+#define IMU_Mag_MGAUSS_8GAUSS (0.29F)
+#define IMU_Mag_MGAUSS_12GAUSS (0.43F)
+#define IMU_Mag_MGAUSS_16GAUSS (0.58F)
 
 //-----------Register mapping-------------
 //Linear accel & gyro
@@ -90,6 +107,16 @@
 #define XAXIS_M (6)
 #define YAXIS_M (7)
 #define ZAXIS_M (8)
+
+typedef struct{
+    uint8_t accelRange;    //Accelerometer range (2, 4, 8, 16)
+    uint8_t gyroRange;     //Gyroscope range (245, 500, 2000)
+    uint8_t magRange;      //Magnetometer range (4,8,12,16)
+    uint8_t accelgyroODR;  //Holds accelerometer and gyro ODR setting
+    uint8_t gyroPower;     //Specifies the magnetometer power mode
+    uint8_t magPower;      //Specifies the magnetometer power mode
+
+} IMU_ctrl_reg;
 
 //Function to initialize I2C communication
 void initI2C();
