@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include "mxc.h"
+
 #define ADC_CHANNEL MXC_ADC_CH_3 //ECG uses channel 3 for ADC input
 
 #define I2C_MASTER MXC_I2C1 ///< I2C instance (Featherboard)
@@ -15,10 +18,38 @@
 #define IMU_AccelGyro_ADDR (0x6BU)
 #define IMU_Mag_ADDR (0x1E)
 #define IMU_AccelGyro_WHOAMI (0x68U) //Checking accelerometer & gyrometer I2C communication
-#define IMU_Mag_WHOAMI (0x3DU) //Checking magnometer I2C communication
+#define IMU_Mag_WHOAMI (0x3DU) //Checking Magnetometer I2C communication
 
-//Register mapping
-#define WHO_AM_I (0x0F)
+//IMU accelerometer macros
+#define IMU_Accel_Range2G  (0b00000000)
+#define IMU_Accel_Range4G  (0b00010000)
+#define IMU_Accel_Range8G  (0b00011000)
+#define IMU_Accel_Range16G (0b00001000)
+
+//IMU gyroscope macros
+#define IMU_Gyro_Range245  (0b00000000)
+#define IMU_Gyro_Range500  (0b00001000)
+#define IMU_Gyro_Range2000 (0b00011000)
+#define IMU_Gyro_LPower    (0b10000000)
+
+//Accel & Gyro ODR low power modes
+#define IMU_AccelGyro_ODR14  (0b00100000)
+#define IMU_AccelGyro_ODR59  (0b01000000)
+#define IMU_AccelGyro_ODR119 (0b01100000)
+
+//IMU Magnetometer macros
+#define IMU_Mag_Range4Gauss  (0b00000000)
+#define IMU_Mag_Range8Gauss  (0b00100000)
+#define IMU_Mag_Range12Gauss (0b01000000)
+#define IMU_Mag_Range16Gauss (0b01100000)
+#define IMU_Mag_LPower       (0b00000000)
+#define IMU_Mag_MedPerf      (0b00100000)
+#define IMU_Mag_HighPerf     (0b01000000)
+#define IMU_Mag_UltraPerf    (0b01100000)
+
+//-----------Register mapping-------------
+//Linear accel & gyro
+#define WHO_AM_I (0x0F) //IMU Identifier register
 #define CTRL_REG1_G (0x10) //Angular rate sensor Control Register 1.
 #define CTRL_REG2_G (0x11) //Angular rate sensor Control Register 2.
 #define CTRL_REG3_G (0x12) //Angular rate sensor Control Register 3.
@@ -29,14 +60,54 @@
 #define CTRL_REG9 (0x23) //Control register9(Sleep mode & memory control)
 #define CTRL_REG10 (0x24) //Self test register
 #define STATUS_REG (0x27) //IMU Status reg
-#define OUT_X_XL (0x28) //Linear accel X-axis output base addr [1:0]
-#define OUT_Y_XL (0x2A) //Linear accel Y-axis output base addr [1:0]
-#define OUT_Z_XL (0x2C) //Linear accel Z-axis output base addr [1:0]
 
+//Magnetometer regs
+#define CTRL_REG1_M (0x20)
+#define CTRL_REG2_M (0x21)
+#define CTRL_REG3_M (0x22)
+#define CTRL_REG4_M (0x23)
+#define CTRL_REG5_M (0x24)
+#define STATUS_REG_M (0x27)
 
-void initI2C();//Function to initialize I2C communication
-void initIMU();//Function to initialize IMU
-void I2C_SCAN();//Function that scans I2C 
+//Output regs
+#define OUT_X_G   (0x18) //Angular rate sensor pitch axis (X) angular rate output register. The value is expressed as a 16-bit word in two’s complement.
+#define OUT_Y_G   (0x1A) //Angular rate sensor roll axis (Y) angular rate output register. The value is expressed as a 16-bit word in two’s complement.
+#define OUT_Z_G   (0x1C) //Angular rate sensor Yaw axis (Z) angular rate output register. The value is expressed as a 16-bit word in two’s complement.
+#define OUT_X_XL  (0x28) //Linear acceleration sensor X-axis output register. The value is expressed as a 16-bit word in two’s complement
+#define OUT_Y_XL  (0x2A) //Linear acceleration sensor Y-axis output register. The value is expressed as a 16-bit word in two’s complement
+#define OUT_Z_XL  (0x2C) //Linear acceleration sensor Z-axis output register. The value is expressed as a 16-bit word in two’s complement.
+#define OUT_X_L_M (0x28) //Magnetometer X-axis data output. The value of the magnetic field is expressed as two’s complement.
+#define OUT_Y_L_M (0x2A) //Magnetometer Y-axis data output. The value of the magnetic field is expressed as two’s complement.
+#define OUT_Z_L_M (0x2C) //Magnetometer Z-axis data output. The value of the magnetic field is expressed as two’s complement.
 
-void initADC();//Function to initialize ADC
-void convertADC();//Function to start ADC conversion
+//Output reg states
+#define XAXIS_L (0)
+#define YAXIS_L (1)
+#define ZAXIS_L (2)
+#define XAXIS_G (3)
+#define YAXIS_G (4)
+#define ZAXIS_G (5)
+#define XAXIS_M (6)
+#define YAXIS_M (7)
+#define ZAXIS_M (8)
+
+//Function to initialize I2C communication
+void initI2C();
+//Function to initialize IMU
+void initIMU();
+//Function to read data from IMU registers
+int readIMU(uint8_t reg, uint8_t *data);
+//Function to write data to IMU registers
+int writeIMU(uint8_t reg, uint8_t value);
+/*Function to get readings from the IMU.
+*
+* uint8_t magnetometer indicates if we want
+* readings from the magnetometer */
+void getIMU(uint8_t magnetometer);
+//Function that scans I2C BUS
+void I2C_SCAN();
+
+//Function to initialize ADC
+void initADC();
+//Function to start ADC conversion
+void convertADC();
