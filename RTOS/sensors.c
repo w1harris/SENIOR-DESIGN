@@ -6,7 +6,7 @@ volatile unsigned int beats;//Variable to keep track of heart beats
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
-    IMU_Accel_Range4G, IMU_Gyro_Range500, IMU_Mag_Range4Gauss, //Setting default values
+    IMU_Accel_Range8G, IMU_Gyro_Range500, IMU_Mag_Range4Gauss, //Setting default values
     IMU_AccelGyro_ODR14, IMU_Gyro_LPower, IMU_Mag_LPower
 };
 
@@ -21,7 +21,7 @@ void initIMU(){
 
     reqMaster.i2c = I2C_MASTER;
     reqMaster.addr = IMU_AccelGyro_ADDR;
-    reqMaster.restart = 1;
+    reqMaster.restart = 0;
 
     //Checking for existance of IMU modules
     if (!readIMU(WHO_AM_I, rx_buf)){
@@ -83,7 +83,7 @@ int writeIMU(uint8_t reg, uint8_t value){
 
 void getIMU(uint8_t magnetometer){
     reqMaster.addr = IMU_AccelGyro_ADDR;
-    int rx_len = ZAXIS_G * 2;
+    int rx_len = (ZAXIS_G+1) * 2;
     uint8_t tx_buf[1] = {OUT_X_G};
     uint8_t *rx_buf = calloc(rx_len, sizeof(uint8_t));//rx buffer is ZAXIS * 2 because imu output addrs have 2, 8 bit regs
     uint8_t *buffer_base = rx_buf;
@@ -92,7 +92,7 @@ void getIMU(uint8_t magnetometer){
     reqMaster.tx_len = 1;
     reqMaster.rx_buf = rx_buf;
     reqMaster.rx_len = rx_len;
-
+    
     if(!MXC_I2C_MasterTransaction(&reqMaster)){//IMU will automatically cycle through the Accel & Gyro output registers. All register values are stored in rx_buf
         float combined_buf[(rx_len/2) + 1];//Creating a combined buffer to hold the 16 bit register values
 
@@ -100,7 +100,7 @@ void getIMU(uint8_t magnetometer){
             combined_buf[i] = *rx_buf;//Storing LSBs
             rx_buf++;//Incrementing pointer
             combined_buf[i] = combined_buf[i] + (*rx_buf << 8);//Left shifting the MSBs
-
+            rx_buf++;//Incrementing pointer
         }
 
         //Formatting output
