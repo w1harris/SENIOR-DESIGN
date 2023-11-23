@@ -89,6 +89,14 @@ mxc_gpio_cfg_t uart_cts_isr;
 #define CMD_LINE_BUF_SIZE 80
 #define OUTPUT_BUF_SIZE 512
 
+//BLE GPIO
+extern mxc_uart_regs_t *bleUART;
+
+mxc_gpio_cfg_t bleboot = {MXC_GPIO0, MXC_GPIO_PIN_19, MXC_GPIO_FUNC_OUT, MXC_GPIO_PAD_WEAK_PULL_UP, MXC_GPIO_VSSEL_VDDIOH};//GPIO pin to control BLE power
+
+//GPIO for 306 esp32
+mxc_gpio_cfg_t bleEN = {MXC_GPIO1, MXC_GPIO_PIN_6, MXC_GPIO_FUNC_OUT, MXC_GPIO_PAD_WEAK_PULL_DOWN, MXC_GPIO_VSSEL_VDDIOH};//Enables the ble
+
 /* Defined in freertos_tickless.c */
 extern void wutHitSnooze(void);
 
@@ -135,6 +143,15 @@ int main(void)
     /* Setup manual CTS/RTS to lockout console and wake from deep sleep */
     MXC_GPIO_Config(&uart_cts);
     MXC_GPIO_Config(&uart_rts);
+
+    //bleON GPIO
+    MXC_UART_Init(bleUART, 115200, 2);//Enabling UART
+    
+    MXC_GPIO_Config(&bleEN);
+    MXC_GPIO_OutClr(bleEN.port, bleEN.mask);//Setting power output to low
+    
+    MXC_GPIO_Config(&bleboot);
+    MXC_GPIO_OutSet(bleboot.port, bleboot.mask);
 
     /* Enable incoming characters */
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);

@@ -83,8 +83,15 @@
 
 #include "sensors.h"
 #include "tasks.h"
+#include "ble.h"
 
 extern int disable_tickless;
+
+/*
+ * Defines a command which turns the ble chip on
+ *
+ */
+static BaseType_t prvbleStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command which initizalizes the IMU and begins to automatically take readings
@@ -189,6 +196,13 @@ static const CLI_Command_Definition_t xIMUStart = {
     0//No parameters expected(could configure this to take in parameters which configure the scale settings on the IMU)
 };
 
+static const CLI_Command_Definition_t xbleStart = {
+    "BLE_Start",
+    "\r\nBLE_Start:\r\n BLE startup and allows commands to be send to chip\r\n\r\n",
+    prvbleStartCommand,
+    0//No parameters expected
+};
+
 /*-----------------------------------------------------------*/
 
 void vRegisterCLICommands(void)
@@ -201,8 +215,17 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xI2CScan);
     FreeRTOS_CLIRegisterCommand(&xIMUStart);
+    FreeRTOS_CLIRegisterCommand(&xbleStart);
 }
 /*-----------------------------------------------------------*/
+
+static BaseType_t prvbleStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    printf("Starting up BLE...\n");
+    initBLE();
+    printf("BLE startup complete, to issue commands use ""ble <COMMAND>""\n");
+
+    return pdFALSE;
+}
 
 static BaseType_t prvIMUStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Initializing IMU...\n");
