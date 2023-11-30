@@ -88,6 +88,12 @@
 extern int disable_tickless;
 
 /*
+ * Defines a command which starts taking heartbeat readings
+ *
+ */
+static BaseType_t prvECGStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
  * Defines a command which turns the ble chip on
  *
  */
@@ -189,6 +195,13 @@ static const CLI_Command_Definition_t xI2CScan = {
     0//No parameters expected
 };
 
+static const CLI_Command_Definition_t xECGStart = {
+    "ECG_Start",
+    "\r\nECG_Start:\r\n Starts taking heartbeat readings\r\n\r\n",
+    prvECGStartCommand,
+    0//No paramemters expected
+};
+
 static const CLI_Command_Definition_t xIMUStart = {
     "IMU_Start",
     "\r\nIMU_Start:\r\n IMU startup and gets active readings\r\n\r\n",
@@ -214,16 +227,28 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xThreeParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xParameterEcho);
     FreeRTOS_CLIRegisterCommand(&xI2CScan);
+    FreeRTOS_CLIRegisterCommand(&xECGStart);
     FreeRTOS_CLIRegisterCommand(&xIMUStart);
     FreeRTOS_CLIRegisterCommand(&xbleStart);
 }
 /*-----------------------------------------------------------*/
+
+static BaseType_t prvECGStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    printf("Starting ECG readings...\n");
+    xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+    return pdFALSE;
+}
 
 static BaseType_t prvbleStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Starting up BLE...\n");
     initBLE();
     printf("BLE startup complete, to issue commands use ""ble <COMMAND>""\n");
 
+    return pdFALSE;
+}
+
+static BaseType_t prvbleCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    char *pcParameter;
     return pdFALSE;
 }
 

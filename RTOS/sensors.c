@@ -6,7 +6,7 @@ volatile unsigned int beats;//Variable to keep track of heart beats
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
-    IMU_Accel_Range8G, IMU_Gyro_Range500, IMU_Mag_Range4Gauss, //Setting default values
+    IMU_Accel_Range2G, IMU_Gyro_Range245, IMU_Mag_Range4Gauss, //Setting default values
     IMU_AccelGyro_ODR14, IMU_Gyro_LPower, IMU_Mag_LPower
 };
 

@@ -176,9 +176,7 @@ int main(void)
                          NULL, tskIDLE_PRIORITY + 2, NULL) != pdPASS) ||
             (xTaskCreate(vCmdLineTask, (const char *)"CmdLineTask",
                          configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, &cmd_task_id) != pdPASS) ||
-            (xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,
-                         tskIDLE_PRIORITY + 2, NULL) != pdPASS)) {
+                         tskIDLE_PRIORITY + 1, &cmd_task_id) != pdPASS)) {
             printf("xTaskCreate() failed to create a task.\n");
         } else {
             /* Start scheduler */
