@@ -44,7 +44,7 @@
 #error ERR_NOTSUPPORTED: Unsupported board!
 #endif*/
 
-#define ADC_CHANNEL MXC_ADC_CH_4
+#define ADC_CHANNEL MXC_ADC_CH_3
 /* Change to #undef USE_INTERRUPTS for polling mode */
 #define USE_INTERRUPTS
 

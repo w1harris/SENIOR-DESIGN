@@ -130,10 +130,14 @@ int main(void)
 
         /* Display results on OLED display, display asterisk if overflow */
         
-        printf("%d\n", adc_val);
         
-        if (adc_val > 850) printf("High movement detected\n");
-        else if (adc_val > 250) printf("Movement detected\n");
+        
+        if (adc_val > 850) {
+            printf("High movement detected\n");
+        }
+        else if (adc_val > 100) {
+            printf("Movement detected\n");\
+        }
 
         /* Delay for 1/4 second before next reading */
         MXC_TMR_Delay(MXC_TMR0, MSEC(10));
