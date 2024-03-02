@@ -6,7 +6,7 @@
 **************************************************************************************************/
 
 /*
- * This header file was automatically @generated for the ai85-cough network from a template.
+ * This header file was automatically @generated for the new_cough network from a template.
  * Please do not edit; instead, edit the template and regenerate.
  */
 
