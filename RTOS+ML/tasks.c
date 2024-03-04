@@ -16,6 +16,7 @@
 #include "board.h"
 #include "sensors.h"
 #include "tasks.h"
+#include "ML.h"
 
 //FREERTOS Configs
 extern unsigned int disable_tickless;
@@ -128,6 +129,23 @@ void vADCTask(void *pvParameters){
             oldBeat = beats;
         }
         xTaskDelayUntil(&lastWakeTime, ADC_WAIT);//Delaying this task for adcFrequency(10 ticks)
+    }
+}
+
+void vMLcontTask(void *pvParameters){
+    vTaskSuspendAll();//Suspending all tasks to run ML model continuously
+
+    while(1){
+        runModel();
+    }
+}
+
+void vMLTask(void *pvParameters){
+    TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
+
+    while(1){
+        runModel();
+        //May need to add a delay, currently just want to run the model until something else needs to be run
     }
 }
 

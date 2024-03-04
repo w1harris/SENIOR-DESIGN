@@ -84,6 +84,7 @@
 #include "sensors.h"
 #include "tasks.h"
 #include "ble.h"
+#include "ML.h"
 
 extern int disable_tickless;
 
@@ -110,6 +111,18 @@ static BaseType_t prvIMUStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen
  *
  */
 static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
+ * Defines a command which runs ML model continuously
+ *
+ */
+static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
+ * Defines a command which turns on the ML model
+ *
+ */
+static BaseType_t prvMLStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command that returns a table showing the state of each task at the
@@ -216,6 +229,20 @@ static const CLI_Command_Definition_t xbleStart = {
     0//No parameters expected
 };
 
+static const CLI_Command_Definition_t xMLContinuous = {//Command to continuously run ML model
+    "ML_Continuous",
+    "\r\nML_Continuous:\r\n Runs ML model continuously for testing\r\n\r\n",
+    prvMLContCommand,
+    0//No parameters expected
+};
+
+static const CLI_Command_Definition_t xMLStart = {//Command to start up ML model
+    "ML_Start",
+    "\r\nML_Start:\r\n Starts up the ML model and begins running as a part of the OS\r\n\r\n",
+    prvMLStartCommand,
+    0//No parameters expected
+};
+
 /*-----------------------------------------------------------*/
 
 void vRegisterCLICommands(void)
@@ -230,6 +257,8 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xECGStart);
     FreeRTOS_CLIRegisterCommand(&xIMUStart);
     FreeRTOS_CLIRegisterCommand(&xbleStart);
+    FreeRTOS_CLIRegisterCommand(&xMLContinuous);
+    FreeRTOS_CLIRegisterCommand(&xMLStart);
 }
 /*-----------------------------------------------------------*/
 
@@ -267,6 +296,24 @@ static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
     printf("Scanning BUS...\n");
     I2C_SCAN();
 
+    return pdFALSE;
+}
+
+static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    init_ML();
+
+    //Creating RTOS task with highest priority
+    xTaskCreate(vMLcontTask, (const char*)"MLcontTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
+
+    return pdFALSE;
+}
+
+static BaseType_t prvMLStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    init_ML();
+
+    //Creating RTOS task
+    xTaskCreate(vMLTask, (const char*)"MLTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
+    
     return pdFALSE;
 }
 
