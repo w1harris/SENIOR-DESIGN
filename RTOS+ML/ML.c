@@ -10,7 +10,7 @@
 #include <math.h>
 
 /* Enable/Disable Features */
-#define ENABLE_PRINT_ENVELOPE // enables printing average waveform envelope for samples
+//#define ENABLE_PRINT_ENVELOPE // enables printing average waveform envelope for samples
 #define ENABLE_CLASSIFICATION_DISPLAY  // enables printing classification result
 #define ENABLE_SILENCE_DETECTION // Starts collecting only after avg > THRESHOLD_HIGH, otherwise starts from first sample
 #undef EIGHT_BIT_SAMPLES // samples from Mic or Test vectors are eight bit, otherwise 16-bit
@@ -426,7 +426,7 @@ void runModel(){//Function to run CNN
 
     /* Turn off LED2 (Red) */
     LED_Off(LED2);
-    PR_DEBUG("Total Samples:%d, Total Words: %d \n", sampleCounter, wordCounter);
+    //PR_DEBUG("Total Samples:%d, Total Words: %d \n", sampleCounter, wordCounter);
 }
 
 /* **************************************************************************** */
