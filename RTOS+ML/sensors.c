@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 volatile unsigned int beats;//Variable to keep track of heart beats
+volatile unsigned int CMic_Val;//Variable to store current ADC reading for CMic
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
@@ -264,5 +265,6 @@ void ADC_IRQHandler(void)
         MXC_ADC->intr |= MXC_F_ADC_INTR_LO_LIMIT_IF;//Clearing flags
         beats++;//Incrementing beats
     }
+    CMic_Val = MXC_ADC->data;
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
 }

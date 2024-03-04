@@ -179,7 +179,7 @@ int main(void)
     initADC();
 
     //I2C Master Setup
-    //initI2C();
+    //initI2C(); Taken out because of ML setup
 
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);

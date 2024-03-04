@@ -87,6 +87,7 @@
 #include "ML.h"
 
 extern int disable_tickless;
+extern volatile uint8_t CMic_ON;
 
 /*
  * Defines a command which starts taking heartbeat readings
@@ -123,6 +124,12 @@ static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, 
  *
  */
 static BaseType_t prvMLStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
+ * Defines a command which tests the contact microphone
+ *
+ */
+static BaseType_t prvCMicCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command that returns a table showing the state of each task at the
@@ -243,6 +250,13 @@ static const CLI_Command_Definition_t xMLStart = {//Command to start up ML model
     0//No parameters expected
 };
 
+static const CLI_Command_Definition_t xCMic = {//Command to start contact mic
+    "CMic",
+    "\r\nCMic:\r\n Tests the contact microphone output\r\n\r\n",
+    prvCMicCommand,
+    0//No parameters expected
+};
+
 /*-----------------------------------------------------------*/
 
 void vRegisterCLICommands(void)
@@ -259,11 +273,19 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xbleStart);
     FreeRTOS_CLIRegisterCommand(&xMLContinuous);
     FreeRTOS_CLIRegisterCommand(&xMLStart);
+    FreeRTOS_CLIRegisterCommand(&xCMic);
 }
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvECGStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Starting ECG readings...\n");
+    xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+    return pdFALSE;
+}
+
+static BaseType_t prvCMicCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    printf("Starting Contact Mic readings...\n");
+    CMic_ON = TRUE;
     xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
     return pdFALSE;
 }
