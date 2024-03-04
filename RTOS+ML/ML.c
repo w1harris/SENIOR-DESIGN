@@ -127,7 +127,7 @@ void i2s_isr(void)
 
 void runModel(){//Function to run CNN
   /* Read samples */
-#ifndef ENABLE_MIC_PROCESSING
+    #ifndef ENABLE_MIC_PROCESSING
 
         /* end of test vectors */
         if (sampleCounter >= sizeof(voiceVector) / sizeof(voiceVector[0])) {
@@ -135,7 +135,35 @@ void runModel(){//Function to run CNN
             break;
         }
 
-#endif
+    #endif
+
+    /* Read from Mic driver to get CHUNK worth of samples, otherwise next sample*/
+        if (MicReadChunk(&avg) == 0) {
+    #ifdef WUT_ENABLE
+    #ifdef ENERGY
+
+            // keep LED on for about 10sec for energy measurement
+            if (tot_usec > 10 * 1000 * 1000) {
+                LED_Off(LED1);
+                tot_usec = -10000000; // wait for 10sec before measuring again
+            } else if (tot_usec > 0) {
+                LED_On(LED1);
+            }
+
+    #endif
+    #endif
+
+    #if SLEEP_MODE == 1
+            __WFI();
+    #elif SLEEP_MODE == 2
+    #ifdef WUT_ENABLE
+            MXC_LP_ClearWakeStatus();
+            SCB->SCR |= SCB_SCR_SLEEPDEEP_Msk; // SLEEPDEEP=1
+            __WFI();
+    #endif
+    #endif // #if SLEEP_MODE == 1
+            return;
+        }
 
         sampleCounter += CHUNK;
 
@@ -392,7 +420,7 @@ void runModel(){//Function to run CNN
                 /* clear the buffer */
                 memset(micBuff, 0, SAMPLE_SIZE);
                 micBufIndex = 0;
-                sampleCounter = 0;  // comment to start immediately after the last utterance
+                //sampleCounter = 0;  // comment to start immediately after the last utterance
             }
         }
 

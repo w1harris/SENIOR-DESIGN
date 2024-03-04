@@ -64,6 +64,7 @@
 #include "cnn.h"
 #include "nvic_table.h"
 #include "mxc_sys.h"
+#include "ML.h"
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -171,11 +172,14 @@ int main(void)
     /* Enable incoming characters */
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
 
+    //Machine learning model setup
+    init_ML();
+
     //ADC Setup
     initADC();
 
     //I2C Master Setup
-    initI2C();
+    //initI2C();
 
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);

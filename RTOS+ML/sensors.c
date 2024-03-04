@@ -12,6 +12,7 @@ IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
 
 void initI2C(){
     MXC_I2C_Init(I2C_MASTER, 1, 0);
+    
     //MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);Already set in Init function (100kHz)
     return;
 }

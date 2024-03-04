@@ -300,8 +300,6 @@ static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
 }
 
 static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
-    init_ML();
-
     //Creating RTOS task with highest priority
     xTaskCreate(vMLcontTask, (const char*)"MLcontTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
 
@@ -309,8 +307,6 @@ static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, 
 }
 
 static BaseType_t prvMLStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
-    init_ML();
-
     //Creating RTOS task
     xTaskCreate(vMLTask, (const char*)"MLTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
     
