@@ -16,6 +16,7 @@
 #include "board.h"
 #include "sensors.h"
 #include "tasks.h"
+#include "ML.h"
 
 //FREERTOS Configs
 extern unsigned int disable_tickless;
@@ -24,6 +25,8 @@ extern TaskHandle_t cmd_task_id;
 #define ADC_WAIT ((portTickType)15)//Used to make the ADC task wait 15 ticks
 extern volatile unsigned int beats;
 unsigned int oldBeat;
+volatile uint8_t CMic_ON = FALSE;
+extern volatile unsigned int CMic_Val;
 //Console UART
 #define CMD_LINE_BUF_SIZE 80
 #define OUTPUT_BUF_SIZE 512
@@ -122,12 +125,36 @@ void vADCTask(void *pvParameters){
     while(1){
         convertADC();
         ticks = xTaskGetTickCount();//Gets total number of ticks since system initialization
-        if (oldBeat != beats){
-            printf("Total beats: %d\n", beats);
-            printf("Current bpm: %d\n", 60*beats/(ticks/configTICK_RATE_HZ));
-            oldBeat = beats;
+        if (CMic_ON){
+            if (CMic_Val > 200){
+                printf("Current ADC value: %d\n", CMic_Val);
+            }
+        }
+        else{
+            if (oldBeat != beats){
+                printf("Total beats: %d\n", beats);
+                printf("Current bpm: %d\n", 60*beats/(ticks/configTICK_RATE_HZ));
+                oldBeat = beats;
+            }
         }
         xTaskDelayUntil(&lastWakeTime, ADC_WAIT);//Delaying this task for adcFrequency(10 ticks)
+    }
+}
+
+void vMLcontTask(void *pvParameters){
+    vTaskSuspendAll();//Suspending all tasks to run ML model continuously
+
+    while(1){
+        runModel();
+    }
+}
+
+void vMLTask(void *pvParameters){
+    TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
+
+    while(1){
+        runModel();
+        //May need to add a delay, currently just want to run the model until something else needs to be run
     }
 }
 

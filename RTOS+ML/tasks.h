@@ -49,6 +49,22 @@ void vIMUTask(void *pvParameters);
  */
 void vADCTask(void *pvParameters);
 
+/* =| vMLcontTask |============================================
+ *
+ * This task runs the cough & speech detection model
+ * in continuous mode
+ * =======================================================
+ */
+void vMLcontTask(void *pvParameters);
+
+/* =| vMLTask |============================================
+ *
+ * This task runs the cough & speech detection model
+ * 
+ * =======================================================
+ */
+void vMLTask(void *pvParameters);
+
 /* =| vCmdLineTask_cb |======================================
  *
  * Callback on asynchronous reads to wake the waiting command

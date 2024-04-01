@@ -55,6 +55,17 @@
 #include "sensors.h"
 #include "tasks.h"
 
+#include "i2s_regs.h"
+#include "i2s.h"
+#include "tmr.h"
+#include "dma.h"
+#include "fcr_regs.h"
+#include "icc.h"
+#include "cnn.h"
+#include "nvic_table.h"
+#include "mxc_sys.h"
+#include "ML.h"
+
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
 
@@ -97,6 +108,9 @@ mxc_gpio_cfg_t bleboot = {MXC_GPIO0, MXC_GPIO_PIN_19, MXC_GPIO_FUNC_OUT, MXC_GPI
 //GPIO for 306 esp32
 mxc_gpio_cfg_t bleEN = {MXC_GPIO1, MXC_GPIO_PIN_6, MXC_GPIO_FUNC_OUT, MXC_GPIO_PAD_WEAK_PULL_DOWN, MXC_GPIO_VSSEL_VDDIOH};//Enables the ble
 
+//ML model definitions
+extern volatile uint8_t i2s_flag;
+
 /* Defined in freertos_tickless.c */
 extern void wutHitSnooze(void);
 
@@ -123,8 +137,10 @@ void UARTx_IRQHandler(void)
  */
 void WUT_IRQHandler(void)
 {
+    i2s_flag = 1;
     MXC_WUT_IntClear();
     NVIC_ClearPendingIRQ(WUT_IRQn);
+    
 }
 
 /* =| main |==============================================
@@ -156,11 +172,14 @@ int main(void)
     /* Enable incoming characters */
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
 
+    //Machine learning model setup
+    init_ML();
+
     //ADC Setup
     initADC();
 
     //I2C Master Setup
-    initI2C();
+    //initI2C(); Taken out because of ML setup
 
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);

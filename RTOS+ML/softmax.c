@@ -63,8 +63,6 @@
    *  with a log(2) scaling factor.
    */
 
-  
-
 void softmax_q17p14_q15(const q31_t * vec_in, const uint16_t dim_vec, q15_t * p_out)
 {
     q31_t     sum;
