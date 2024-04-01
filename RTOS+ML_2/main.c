@@ -306,6 +306,10 @@ void adc_init() {
     MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0);
     MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 250);
     MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
+
+    #ifdef USE_INTERRUPTS
+        NVIC_EnableIRQ(ADC_IRQn);
+    #endif
 }
 /* **** ENDING ECG FUNCTION DEFINITIONS **** */
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -395,14 +399,14 @@ static uint32_t setColor(int r, int g, int b)
 
 /* **** ENDING MACHINE LEARNING FUNCTION PROTOTYPES **** */
 //-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **************************************************************************** */
+/* ***************************************************** */
 
 int main(void)
 {
     uint32_t sampleCounter = 0;
     mxc_tmr_unit_t units;
 
-    uint8_t pChunkBuff[CHUNK];
+    uint8_t pChunkBuff[CHUNK]; // array of mic samples size CHUNK
 
     uint16_t avg = 0;
     uint16_t ai85Counter = 0;
@@ -419,6 +423,7 @@ int main(void)
     /* Enable cache */
     MXC_ICC_Enable(MXC_ICC0);
 
+    /* Change Clock source depending on above configs */
     switch (CLOCK_SOURCE) {
     case 0:
         MXC_SYS_ClockSourceEnable(MXC_SYS_CLOCK_IPO);
@@ -468,7 +473,7 @@ int main(void)
     /* Configure P2.5, turn on the CNN Boost */
     cnn_boost_enable(MXC_GPIO2, MXC_GPIO_PIN_5);
 
-    PR_INFO("\n\nANALOG DEVICES \nKeyword Spotting Demo\nVer. %s \n", VERSION);
+    PR_INFO("\n\nANALOG DEVICES \nCough Detection Demo\nVer. %s \n", VERSION);
     PR_INFO("\n***** Init *****\n");
     memset(pAI85Buffer, 0x0, sizeof(pAI85Buffer));
 
