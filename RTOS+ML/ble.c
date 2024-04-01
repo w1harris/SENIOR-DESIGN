@@ -15,9 +15,9 @@ uint8_t rx_buf[BUFF_SIZE];
 uint8_t rx_pos = 0;//Stores current position in receive buffer
 
 void initBLE(){
-    MXC_GPIO_OutSet(bleEN.port, bleEN.mask);//Toggling the GPIO pin to high to turn on ble device
-    MXC_Delay(4000000);
+    //Initializing UART peripheral
     MXC_UART_Init(MXC_UART_GET_UART(2), UART_BAUD, MXC_UART_APB_CLK);
+
     //Clearing buffers
     memset(tx_buf, 0x0, BUFF_SIZE);
     memset(rx_buf, 0x0, BUFF_SIZE);
