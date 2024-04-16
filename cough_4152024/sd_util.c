@@ -40,8 +40,6 @@
  *
  *          an sd card must be inserted to the sd card slot.
  */
-#define SEND_MIC_OUT_SDCARD = 1;
-
 #ifdef SEND_MIC_OUT_SDCARD // SD card support is only available for Feather Board
 /***** Includes *****/
 #include <stdio.h>
@@ -54,7 +52,6 @@
 #include "mxc_device.h"
 #include "gpio.h"
 #include "uart.h"
-#include "math.h"
 
 #include "ff.h"
 
@@ -140,19 +137,9 @@ int formatSDHC()
 
     printf("FORMATTING DRIVE\n");
 
-    typedef struct {
-    BYTE fmt;           /* Format option (FM_FAT, FM_FAT32, FM_EXFAT and FM_SFD) */
-    BYTE n_fat;         /* Number of FATs */
-    UINT align;         /* Data area alignment (sector) */
-    UINT n_root;        /* Number of root directory entries */
-    DWORD au_size;      /* Cluster size (byte) */
-    } MKFS_PARM;
-
     MKFS_PARM format_options = { .fmt = FM_ANY };
-    int32_t d_word = pow(32, 2) - 1;
 
-
-    if ((err = f_mkfs("", &format_options, d_word, work, sizeof(work))) !=
+    if ((err = f_mkfs("", &format_options, work, sizeof(work))) !=
         FR_OK) { //Format the default drive to FAT32
         printf("Error formatting SD card: %s\n", FF_ERRORS[err]);
     } else {

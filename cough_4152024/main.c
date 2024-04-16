@@ -60,8 +60,7 @@
 #ifndef BOARD_AUD01_REVA
 #include "pb.h"
 #endif
-#include "cnn_cough.h"
-#include "main_cnn.h"
+#include "cnn.h"
 #ifdef BOARD_FTHR_REVA
 #include "tft_ili9341.h"
 #ifdef ENABLE_CODEC_MIC
@@ -74,9 +73,6 @@
 #include "bitmap.h"
 #endif
 #include <math.h>
-#include "uart.h"
-#include "dma.h"
-#include "nvic_table.h"
 
 #define VERSION "3.2.3 (5/05/23)" // trained with background noise and more unknown keywords
 /* **** Definitions **** */
@@ -84,13 +80,11 @@
 #define SLEEP_MODE 0 // 0: no sleep,  1: sleep,   2:deepsleep(LPM)
 #define WUT_ENABLE 1 // enables WUT timer
 #define WUT_USEC 380 // continuous WUT duration close to I2S polling time in usec
-
-#define SEND_MIC_OUT_SDCARD = 1
 //#define ENERGY            // if enabled, turn off LED2, toggle LED1 for 10sec for energy measurements on Power monitor (System Power)
 
 #if SLEEP_MODE == 2 // need WakeUp Timer (WUT) for deepsleep (LPM)
 #ifndef WUT_ENABLE
-    #define WUT_ENABLE
+#define WUT_ENABLE
 #endif
 #endif
 
@@ -129,7 +123,7 @@
 #define CHUNK \
     128 // number of data points to read at a time and average for threshold, keep multiple of 128
 #define TRANSPOSE_WIDTH 128 // width of 2d data model to be used for transpose
-#define NUM_OUTPUTS 25 // number of classes, either no cough or cough
+#define NUM_OUTPUTS 2 // number of classes, either no cough or cough
 #define I2S_RX_BUFFER_SIZE 64 // I2S buffer size
 #define TFT_BUFF_SIZE 50 // TFT buffer size
 /*-----------------------------*/
@@ -210,6 +204,9 @@ typedef enum _mic_processing_state {
     KEYWORD = 2 /* Threshold has been detected, gathering keyword samples */
 } mic_processing_state;
 
+/* Set of detected words */
+const char keywords[NUM_OUTPUTS][10] = { "NO_COUGH", "COUGH"};
+
 #ifdef SEND_MIC_OUT_SDCARD
 static char fileName[16];
 unsigned int snippetLength = 16384;
@@ -245,7 +242,7 @@ uint8_t cnn_load_data(uint8_t *pIn);
 uint8_t MicReadChunk(uint16_t *avg);
 uint8_t AddTranspose(uint8_t *pIn, uint8_t *pOut, uint16_t inSize, uint16_t outSize,
                      uint16_t width);
-uint8_t check_inference(int num_outputs, q15_t *ml_soft, int32_t *ml_data, int16_t *out_class, double *out_prob);
+uint8_t check_inference(q15_t *ml_soft, int32_t *ml_data, int16_t *out_class, double *out_prob);
 void I2SInit();
 void HPF_init(void);
 int16_t HPF(int16_t input);
@@ -319,178 +316,7 @@ static uint32_t setColor(int r, int g, int b)
 #endif
 
 /* **************************************************************************** */
-/* BUTTON INITIALIATION */
 
-#define MXC_GPIO_PORT_IN MXC_GPIO1
-#define MXC_GPIO_PIN_IN MXC_GPIO_PIN_7
-
-#define MXC_GPIO_PORT_OUT MXC_GPIO2
-#define MXC_GPIO_PIN_OUT MXC_GPIO_PIN_0
-
-mxc_gpio_cfg_t gpio_in;
-int model_state = 1; // determine which ML Model is being used at that time
-void button_init(void); // function prototype
-
-void button_init(void) {
-    /* 
-        Taken directly from GPIO demo with somw modifications
-    */
-    gpio_in.port = MXC_GPIO_PORT_IN;
-    gpio_in.mask = MXC_GPIO_PIN_IN;
-    gpio_in.pad = MXC_GPIO_PAD_PULL_UP;
-    gpio_in.func = MXC_GPIO_FUNC_IN;
-    gpio_in.vssel = MXC_GPIO_VSSEL_VDDIO;
-    gpio_in.drvstr = MXC_GPIO_DRVSTR_0;
-    MXC_GPIO_Config(&gpio_in);
-}
-/* *************************************************************************************************** */
-/* UART BEGINNING */
-/***** Definitions *****/
-#define DMA
-
-#define UART_BAUD 9600
-#define BUFF_SIZE 1
-
-/***** Globals *****/
-volatile int READ_FLAG;
-volatile int DMA_FLAG;
-
-#define READING_UART 2
-#define WRITING_UART 2
-
-/**** Function Prototypes *****/
-void DMA_Handler(void);
-void UART_Handler(void);
-void readCallback(mxc_uart_req_t *req, int error);
-void uart_bluetooth(int classification);
-
-/***** Functions *****/
-#ifdef DMA
-
-void DMA_Handler(void)
-{
-    MXC_DMA_Handler();
-    DMA_FLAG = 0;
-}
-#else
-void UART_Handler(void)
-{
-    MXC_UART_AsyncHandler(MXC_UART_GET_UART(READING_UART));
-}
-#endif
-
-void readCallback(mxc_uart_req_t *req, int error)
-{
-    READ_FLAG = error;
-}
-
-void uart_bluetooth(int classification)
-{
-    int error, i, fail = 0;
-    uint8_t TxData[BUFF_SIZE];
-    uint8_t RxData[BUFF_SIZE];
-
-    printf("\n\n**************** UART Example ******************\n");
-    printf("Now we will send the classification through uart to bluetooth.\n");
-
-    printf("\n-->UART Baud \t: %d Hz\n", UART_BAUD);
-    printf("\n-->Test Length \t: %d bytes\n", BUFF_SIZE);
-
-    // Initialize the data buffers
-    
-    TxData[0] = classification;
-
-    memset(RxData, 0x0, BUFF_SIZE);
-
-#ifdef DMA
-    MXC_DMA_Init();
-    MXC_DMA_ReleaseChannel(0);
-    MXC_NVIC_SetVector(DMA0_IRQn, DMA_Handler);
-    NVIC_EnableIRQ(DMA0_IRQn);
-#else
-    NVIC_ClearPendingIRQ(MXC_UART_GET_IRQ(READING_UART));
-    NVIC_DisableIRQ(MXC_UART_GET_IRQ(READING_UART));
-    MXC_NVIC_SetVector(MXC_UART_GET_IRQ(READING_UART), UART_Handler);
-    NVIC_EnableIRQ(MXC_UART_GET_IRQ(READING_UART));
-#endif
-
-    // Initialize the UART
-    if ((error = MXC_UART_Init(MXC_UART_GET_UART(READING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
-        E_NO_ERROR) {
-        printf("-->Error initializing UART: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    if ((error = MXC_UART_Init(MXC_UART_GET_UART(WRITING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
-        E_NO_ERROR) {
-        printf("-->Error initializing UART: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    printf("-->UART Initialized\n\n");
-
-    mxc_uart_req_t read_req;
-    read_req.uart = MXC_UART_GET_UART(READING_UART);
-    read_req.rxData = RxData;
-    read_req.rxLen = BUFF_SIZE;
-    read_req.txLen = 0;
-    read_req.callback = readCallback;
-
-    mxc_uart_req_t write_req;
-    write_req.uart = MXC_UART_GET_UART(WRITING_UART);
-    write_req.txData = TxData;
-    write_req.txLen = BUFF_SIZE;
-    write_req.rxLen = 0;
-    write_req.callback = NULL;
-
-    READ_FLAG = 1;
-    DMA_FLAG = 1;
-
-    MXC_UART_ClearRXFIFO(MXC_UART_GET_UART(READING_UART));
-
-#ifdef DMA
-    error = MXC_UART_TransactionDMA(&read_req);
-#else
-    error = MXC_UART_TransactionAsync(&read_req);
-#endif
-
-if (error != E_NO_ERROR) {
-        printf("-->Error starting async read: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    error = MXC_UART_Transaction(&write_req);
-
-    if (error != E_NO_ERROR) {
-        printf("-->Error starting sync write: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    if ((error = memcmp(RxData, TxData, BUFF_SIZE)) != 0) {
-        printf("-->Error verifying Data: %d\n", error);
-        fail++;
-    } else {
-        printf("-->Data verified\n");
-    }
-
-    if (fail != 0) {
-        printf("\n-->Example Failed\n");
-        return E_FAIL;
-    }
-
-    LED_On(LED1); // indicates SUCCESS
-    printf("\n-->Example Succeeded\n");
-    return E_NO_ERROR;
-
-
-}
-/* UART ENDING*/
-/******************************************************************************/
-/* **************************************************************************** */
 int main(void)
 {
     uint32_t sampleCounter = 0;
@@ -503,18 +329,8 @@ int main(void)
     uint16_t wordCounter = 0;
 
     uint16_t avgSilenceCounter = 0;
-    int number_of_outputs;
 
     mic_processing_state procState = STOP;
-
-    /* Set of detected words */
-    /* 
-    char keywords[NUM_OUTPUTS][10] = {"NO COUGH", "COUGH", "UP",    "DOWN", "LEFT",   "RIGHT", "STOP",  "GO",
-                                         "YES",   "NO",   "ON",     "OFF",   "ONE",   "TWO",
-                                         "THREE", "FOUR", "FIVE",   "SIX",   "SEVEN", "EIGHT",
-                                         "NINE",  "ZERO", "Unknown", "", ""};
-    */
-    char keywords[4][10] = {"NO COUGH", "COUGH"};
 
 #if defined(BOARD_FTHR_REVA)
     // Wait for PMIC 1.8V to become available, about 180ms after power up.
@@ -567,10 +383,10 @@ int main(void)
 
     /* Enable peripheral, enable CNN interrupt, turn on CNN clock */
     /* CNN clock: 50 MHz div 1 */
-    cnn_cough_enable(MXC_S_GCR_PCLKDIV_CNNCLKSEL_PCLK, MXC_S_GCR_PCLKDIV_CNNCLKDIV_DIV1);
+    cnn_enable(MXC_S_GCR_PCLKDIV_CNNCLKSEL_PCLK, MXC_S_GCR_PCLKDIV_CNNCLKDIV_DIV1);
 
     /* Configure P2.5, turn on the CNN Boost */
-    cnn_cough_boost_enable(MXC_GPIO2, MXC_GPIO_PIN_5);
+    cnn_boost_enable(MXC_GPIO2, MXC_GPIO_PIN_5);
 
     PR_INFO("\n\nANALOG DEVICES \nKeyword Spotting Demo\nVer. %s \n", VERSION);
     PR_INFO("\n***** Init *****\n");
@@ -582,7 +398,12 @@ int main(void)
     /* SD card support */
     sd_init();
 #endif
-
+    /* Bring state machine into consistent state */
+    cnn_init();
+    /* Load kernels */
+    cnn_load_weights();
+    /* Configure state machine */
+    cnn_configure();
 #ifdef SEND_MIC_OUT_SDCARD
     /* Make Incremental Directory */
     if (mkdirSoundSnippet_CD() != E_NO_ERROR) {
@@ -870,7 +691,7 @@ int main(void)
                 }
 
                 /* Start CNN */
-                if (!cnn_cough_start()) {
+                if (!cnn_start()) {
                     PR_DEBUG("ERROR: Starting CNN! \n");
                     fail();
                 }
@@ -900,38 +721,15 @@ int main(void)
 
 #endif // #if SLEEP_MODE==0
 
-
-                if (!(MXC_GPIO_InGet(gpio_in.port, gpio_in.mask) >> 7) && model_state == 1) {
-                    /* Toggle Model State */
-                    model_state = 0; // This will choose the key word search model
-                }
-                else if (!(MXC_GPIO_InGet(gpio_in.port, gpio_in.mask) >> 7) && model_state == 0) {
-                    /* Toggle Model State */
-                    model_state = 1; // This will choose the cough model
-                }
-
-
-                /* initialize and pass data through model */
-                if (model_state == 1) {
-                    number_of_outputs = 3;
-                    /* Bring state machine into consistent state */
-                    cnn_cough_init();
-                    /* Load kernels */
-                    cnn_cough_load_weights();
-                    /* Configure state machine */
-                    cnn_cough_configure();
-                    /* Read CNN result */
-                    cnn_cough_unload((uint32_t *)ml_data);
-                    /* Stop CNN */
-                    cnn_cough_stop();
-                    /* Disable CNN clock to save power */
-                    MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_CNN);
-                    /* Get time */
-                    MXC_TMR_GetTime(MXC_TMR0, cnn_time, (void *)&cnn_time, &units);
-                    PR_DEBUG("%.6d: Completes CNN: %d\n", sampleCounter, wordCounter);
-                }
-
-
+                /* Read CNN result */
+                cnn_unload((uint32_t *)ml_data);
+                /* Stop CNN */
+                cnn_stop();
+                /* Disable CNN clock to save power */
+                MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_CNN);
+                /* Get time */
+                MXC_TMR_GetTime(MXC_TMR0, cnn_time, (void *)&cnn_time, &units);
+                PR_DEBUG("%.6d: Completes CNN: %d\n", sampleCounter, wordCounter);
 
                 switch (units) {
                 case TMR_UNIT_NANOSEC:
@@ -953,41 +751,31 @@ int main(void)
                 PR_DEBUG("CNN Time: %d us\n", cnn_time);
 
                 /* run softmax */
-                softmax_q17p14_q15((const q31_t *)ml_data, number_of_outputs, ml_softmax);
+                softmax_q17p14_q15((const q31_t *)ml_data, NUM_OUTPUTS, ml_softmax);
 
 #ifdef ENABLE_CLASSIFICATION_DISPLAY
-
-                PR_DEBUG("\nCough Classification results:\n");
+                PR_DEBUG("\nClassification results:\n");
                 
-                for (int i = 0; i < number_of_outputs; i++) {
+                
+                for (int i = 0; i < NUM_OUTPUTS; i++) {
                     int digs = (1000 * ml_softmax[i] + 0x4000) >> 15;
                     int tens = digs % 10;
                     digs = digs / 10;
 
-                    if (model_state == 1) {
-                        PR_DEBUG("[%+.7d] -> Class %.2d %8s: %d.%d%%\n", ml_data[i], i, keywords[i],
-                                 digs, tens);
-                    }
-                    else if (model_state == 2) {
-                        PR_DEBUG("[%+.7d] -> Class %.2d %8s: %d.%d%%\n", ml_data[i], i, keywords[i + 2],
+                    PR_DEBUG("[%+.7d] -> Class %.2d %8s: %d.%d%%\n", ml_data[i], i, keywords[i],
                              digs, tens);
-                    }
- 
                 }
 
 #endif
                 /* find detected class with max probability */
-
-                ret = check_inference(number_of_outputs, ml_softmax, ml_data, &out_class, &probability);
+                ret = check_inference(ml_softmax, ml_data, &out_class, &probability);
 
                 PR_DEBUG("----------------------------------------- \n");
                 /* Treat low confidence detections as unknown*/
-                if (!ret || out_class == number_of_outputs - 1) {
-                    PR_DEBUG("Detected word: %s", "Unknown");
-                    uart_bluetooth(3); // send the output class through uart
+                if (!ret || out_class != 1) {
+                    PR_DEBUG("Nothing Detected");
                 } else {
-                    PR_DEBUG("Detected word: %s (%0.1f%%)", keywords[out_class], probability);
-                    uart_bluetooth(out_class); // send the output class through uart
+                    PR_DEBUG("Detected Cough: %s (%0.1f%%)", keywords[out_class], probability);
                 }
                 PR_DEBUG("\n----------------------------------------- \n");
 
@@ -1172,22 +960,22 @@ void I2SInit()
 #endif
 
 /* **************************************************************************** */
-uint8_t check_inference(int num_outputs, q15_t *ml_soft, int32_t *ml_data, int16_t *out_class, double *out_prob)
+uint8_t check_inference(q15_t *ml_soft, int32_t *ml_data, int16_t *out_class, double *out_prob)
 {
 #ifdef ENABLE_TFT
     char buff[TFT_BUFF_SIZE];
 #endif
-    int32_t temp[num_outputs];
+    int32_t temp[NUM_OUTPUTS];
     q15_t max = 0; // soft_max output is 0->32767
     int32_t max_ml = 1 << 31; // ml before going to soft_max
     int16_t max_index = -1;
 
-    memcpy(temp, ml_data, sizeof(int32_t) * num_outputs);
+    memcpy(temp, ml_data, sizeof(int32_t) * NUM_OUTPUTS);
 
     /* find the top 5 classes */
     for (int top = 0; top < 5; top++) {
         /* find the class with highest */
-        for (int i = 0; i < num_outputs; i++) {
+        for (int i = 0; i < NUM_OUTPUTS; i++) {
             if ((int32_t)temp[i] > max_ml) {
                 max_ml = (int32_t)temp[i];
                 max = ml_soft[i];
@@ -1241,7 +1029,6 @@ uint8_t check_inference(int num_outputs, q15_t *ml_soft, int32_t *ml_data, int16
     } else {
         return 0;
     }
-    
 }
 
 /* **************************************************************************** */
@@ -1280,7 +1067,7 @@ uint8_t cnn_load_data(uint8_t *pIn)
         index += 1024;
     }
 
-    return 1;
+    return CNN_OK;
 }
 /* **************************************************************************** */
 uint8_t AddTranspose(uint8_t *pIn, uint8_t *pOut, uint16_t inSize, uint16_t outSize, uint16_t width)

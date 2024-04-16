@@ -55,11 +55,10 @@
 #include <stdio.h>
 #include "mxc.h"
 #include "gcfr_regs.h"
-#include "cnn_cough.h"
+#include "cnn.h"
 #include "weights.h"
-#include "main_cnn.h"
 
-void CNN_COUGH_ISR(void)
+void CNN_ISR(void)
 {
   // Acknowledge interrupt to all quadrants
   *((volatile uint32_t *) 0x50100000) &= ~((1<<12) | 1);
@@ -67,7 +66,7 @@ void CNN_COUGH_ISR(void)
   *((volatile uint32_t *) 0x50900000) &= ~((1<<12) | 1);
   *((volatile uint32_t *) 0x50d00000) &= ~((1<<12) | 1);
 
-  CNN_COUGH_COMPLETE; // Signal that processing is complete
+  CNN_COMPLETE; // Signal that processing is complete
 #ifdef CNN_INFERENCE_TIMER
   cnn_time = MXC_TMR_SW_Stop(CNN_INFERENCE_TIMER);
 #else
@@ -75,25 +74,32 @@ void CNN_COUGH_ISR(void)
 #endif
 }
 
-int cnn_cough_continue(void)
+int cnn_continue(void)
 {
   cnn_time = 0;
 
   *((volatile uint32_t *) 0x50100000) |= 1; // Re-enable quadrant 0
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_stop(void)
+int cnn_stop(void)
 {
   *((volatile uint32_t *) 0x50100000) &= ~1; // Disable quadrant 0
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
+}
+
+void memcpy32(uint32_t *dst, const uint32_t *src, int n)
+{
+  while (n-- > 0) {
+    *dst++ = *src++;
+  }
 }
 
 static const uint32_t kernels[] = KERNELS;
 
-int cnn_cough_load_weights(void)
+int cnn_load_weights(void)
 {
   uint32_t len;
   volatile uint32_t *addr;
@@ -106,16 +112,16 @@ int cnn_cough_load_weights(void)
       *addr++ = *ptr++;
   }
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_load_bias(void)
+int cnn_load_bias(void)
 {
   // Not used in this network
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_init(void)
+int cnn_init(void)
 {
   *((volatile uint32_t *) 0x50001000) = 0x00000000; // AON control
   *((volatile uint32_t *) 0x50100000) = 0x00100008; // Stop SM
@@ -131,10 +137,10 @@ int cnn_cough_init(void)
   *((volatile uint32_t *) 0x50d00004) = 0x0000040e; // SRAM control
   *((volatile uint32_t *) 0x50d00008) = 0x00000008; // Layer count
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_configure(void)
+int cnn_configure(void)
 {
   // Layer 0 quadrant 0
   *((volatile uint32_t *) 0x50100010) = 0x0000007f; // Rows
@@ -578,10 +584,10 @@ int cnn_cough_configure(void)
   *((volatile uint32_t *) 0x50d00730) = 0xffffffff; // Mask and processor enables
 
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_start(void)
+int cnn_start(void)
 {
   cnn_time = 0;
 
@@ -594,13 +600,13 @@ int cnn_cough_start(void)
   MXC_TMR_SW_Start(CNN_INFERENCE_TIMER);
 #endif
 
-  CNN_COUGH_START; // Allow capture of processing time
+  CNN_START; // Allow capture of processing time
   *((volatile uint32_t *) 0x50100000) = 0x00100009; // Master enable quadrant 0
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_unload(uint32_t *out_buf)
+int cnn_unload(uint32_t *out_buf)
 {
   volatile uint32_t *addr;
 
@@ -633,10 +639,10 @@ int cnn_cough_unload(uint32_t *out_buf)
   addr = (volatile uint32_t *) 0x5080a000;
   *out_buf++ = *addr++;
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_enable(uint32_t clock_source, uint32_t clock_divider)
+int cnn_enable(uint32_t clock_source, uint32_t clock_divider)
 {
   // Reset all domains, restore power to CNN
   MXC_GCFR->reg3 = 0xf; // Reset
@@ -649,12 +655,12 @@ int cnn_cough_enable(uint32_t clock_source, uint32_t clock_divider)
                      | clock_divider | clock_source;
   MXC_SYS_ClockEnable(MXC_SYS_PERIPH_CLOCK_CNN); // Enable CNN clock
 
-  MXC_NVIC_SetVector(CNN_IRQn, CNN_COUGH_ISR); // Set CNN complete vector
+  MXC_NVIC_SetVector(CNN_IRQn, CNN_ISR); // Set CNN complete vector
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_boost_enable(mxc_gpio_regs_t *port, uint32_t pin)
+int cnn_boost_enable(mxc_gpio_regs_t *port, uint32_t pin)
 {
   mxc_gpio_cfg_t gpio_out;
   gpio_out.port = port;
@@ -664,10 +670,10 @@ int cnn_cough_boost_enable(mxc_gpio_regs_t *port, uint32_t pin)
   MXC_GPIO_Config(&gpio_out);
   MXC_GPIO_OutSet(gpio_out.port, gpio_out.mask);
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_boost_disable(mxc_gpio_regs_t *port, uint32_t pin)
+int cnn_boost_disable(mxc_gpio_regs_t *port, uint32_t pin)
 {
   mxc_gpio_cfg_t gpio_out;
   gpio_out.port = port;
@@ -677,10 +683,10 @@ int cnn_cough_boost_disable(mxc_gpio_regs_t *port, uint32_t pin)
   MXC_GPIO_Config(&gpio_out);
   MXC_GPIO_OutClr(gpio_out.port, gpio_out.mask);
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
-int cnn_cough_disable(void)
+int cnn_disable(void)
 {
   // Disable CNN clock
   MXC_SYS_ClockDisable(MXC_SYS_PERIPH_CLOCK_CNN);
@@ -692,6 +698,6 @@ int cnn_cough_disable(void)
   MXC_GCFR->reg1 = 0x0; // Mask memory
   MXC_GCFR->reg3 = 0x0; // Reset
 
-  return CNN_COUGH_OK;
+  return CNN_OK;
 }
 
