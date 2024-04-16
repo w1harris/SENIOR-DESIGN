@@ -314,7 +314,152 @@ static uint32_t setColor(int r, int g, int b)
     return color;
 }
 #endif
+/* UART BEGINNING */
+/***** Definitions *****/
+#define DMA
 
+#define UART_BAUD 9600
+#define BUFF_SIZE 1
+
+/***** Globals *****/
+volatile int READ_FLAG;
+volatile int DMA_FLAG;
+
+#define READING_UART 2
+#define WRITING_UART 2
+
+/**** Function Prototypes *****/
+void DMA_Handler(void);
+void UART_Handler(void);
+void readCallback(mxc_uart_req_t *req, int error);
+void uart_bluetooth(int classification);
+
+/***** Functions *****/
+#ifdef DMA
+
+void DMA_Handler(void)
+{
+    MXC_DMA_Handler();
+    DMA_FLAG = 0;
+}
+#else
+void UART_Handler(void)
+{
+    MXC_UART_AsyncHandler(MXC_UART_GET_UART(READING_UART));
+}
+#endif
+
+void readCallback(mxc_uart_req_t *req, int error)
+{
+    READ_FLAG = error;
+}
+
+void uart_bluetooth(int classification)
+{
+    int error, i, fail = 0;
+    uint8_t TxData[BUFF_SIZE];
+    uint8_t RxData[BUFF_SIZE];
+
+    printf("\n\n**************** UART Example ******************\n");
+    printf("Now we will send the classification through uart to bluetooth.\n");
+
+    printf("\n-->UART Baud \t: %d Hz\n", UART_BAUD);
+    printf("\n-->Test Length \t: %d bytes\n", BUFF_SIZE);
+
+    // Initialize the data buffers
+    
+    TxData[0] = classification;
+
+    memset(RxData, 0x0, BUFF_SIZE);
+
+#ifdef DMA
+    MXC_DMA_Init();
+    MXC_DMA_ReleaseChannel(0);
+    MXC_NVIC_SetVector(DMA0_IRQn, DMA_Handler);
+    NVIC_EnableIRQ(DMA0_IRQn);
+#else
+    NVIC_ClearPendingIRQ(MXC_UART_GET_IRQ(READING_UART));
+    NVIC_DisableIRQ(MXC_UART_GET_IRQ(READING_UART));
+    MXC_NVIC_SetVector(MXC_UART_GET_IRQ(READING_UART), UART_Handler);
+    NVIC_EnableIRQ(MXC_UART_GET_IRQ(READING_UART));
+#endif
+
+    // Initialize the UART
+    if ((error = MXC_UART_Init(MXC_UART_GET_UART(READING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
+        E_NO_ERROR) {
+        printf("-->Error initializing UART: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    if ((error = MXC_UART_Init(MXC_UART_GET_UART(WRITING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
+        E_NO_ERROR) {
+        printf("-->Error initializing UART: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    printf("-->UART Initialized\n\n");
+
+    mxc_uart_req_t read_req;
+    read_req.uart = MXC_UART_GET_UART(READING_UART);
+    read_req.rxData = RxData;
+    read_req.rxLen = BUFF_SIZE;
+    read_req.txLen = 0;
+    read_req.callback = readCallback;
+
+    mxc_uart_req_t write_req;
+    write_req.uart = MXC_UART_GET_UART(WRITING_UART);
+    write_req.txData = TxData;
+    write_req.txLen = BUFF_SIZE;
+    write_req.rxLen = 0;
+    write_req.callback = NULL;
+
+    READ_FLAG = 1;
+    DMA_FLAG = 1;
+
+    MXC_UART_ClearRXFIFO(MXC_UART_GET_UART(READING_UART));
+
+#ifdef DMA
+    error = MXC_UART_TransactionDMA(&read_req);
+#else
+    error = MXC_UART_TransactionAsync(&read_req);
+#endif
+
+if (error != E_NO_ERROR) {
+        printf("-->Error starting async read: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    error = MXC_UART_Transaction(&write_req);
+
+    if (error != E_NO_ERROR) {
+        printf("-->Error starting sync write: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    if ((error = memcmp(RxData, TxData, BUFF_SIZE)) != 0) {
+        printf("-->Error verifying Data: %d\n", error);
+        fail++;
+    } else {
+        printf("-->Data verified\n");
+    }
+
+    if (fail != 0) {
+        printf("\n-->Example Failed\n");
+        return E_FAIL;
+    }
+
+    LED_On(LED1); // indicates SUCCESS
+    printf("\n-->Example Succeeded\n");
+    return E_NO_ERROR;
+
+
+}
+/* UART ENDING*/
+/******************************************************************************/
 /* **************************************************************************** */
 
 int main(void)
@@ -774,8 +919,10 @@ int main(void)
                 /* Treat low confidence detections as unknown*/
                 if (!ret || out_class != 1) {
                     PR_DEBUG("Nothing Detected");
+                    uart_bluetooth(0);
                 } else {
                     PR_DEBUG("Detected Cough: %s (%0.1f%%)", keywords[out_class], probability);
+                    uart_bluetooth(1);
                 }
                 PR_DEBUG("\n----------------------------------------- \n");
 
