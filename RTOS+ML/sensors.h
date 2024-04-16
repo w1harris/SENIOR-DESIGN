@@ -1,10 +1,12 @@
 #include <stdint.h>
 #include "mxc.h"
 
-#define ADC_CHANNEL MXC_ADC_CH_3 //ECG uses channel 3 for ADC input
+#define ADC_CHANNEL MXC_ADC_CH_4 //ECG uses channel 3 for ADC input
 
 #define I2C_MASTER MXC_I2C1 ///< I2C instance (Featherboard)
 #define I2C_FREQ 100000 ///< I2C clock frequency
+
+#define CODEC_MCLOCK 12288000
 
 //IMU DEFINES (Pulled from LSMDS1 github driver)
 /** I2C Device Address 8 bit format  if SA0=0 -> 0xD5 if SA0=1 -> 0xD7 **/

@@ -1,6 +1,7 @@
 #include "sensors.h"
 #include <mxc.h>
 #include <stdlib.h>
+#include "max9867.h"
 
 volatile unsigned int beats;//Variable to keep track of heart beats
 volatile unsigned int CMic_Val;//Variable to store current ADC reading for CMic
@@ -16,6 +17,29 @@ void initI2C(){
     
     //MXC_I2C_SetFrequency(I2C_MASTER, I2C_FREQ);Already set in Init function (100kHz)
     return;
+}
+
+void codec_init(void)
+{
+    if (max9867_init(MXC_I2C1, CODEC_MCLOCK, 1) != E_NO_ERROR)
+        blink_halt("Error initializing MAX9867 CODEC");
+
+    if (max9867_enable_playback(1) != E_NO_ERROR)
+        blink_halt("Error enabling playback path");
+
+    if (max9867_playback_volume(-6, -6) != E_NO_ERROR)
+        blink_halt("Error setting playback volume");
+
+    if (max9867_enable_record(1) != E_NO_ERROR)
+        blink_halt("Error enabling record path");
+
+    if (max9867_adc_level(-12, -12) != E_NO_ERROR)
+        blink_halt("Error setting ADC level");
+
+    if (max9867_linein_gain(-6, -6) != E_NO_ERROR)
+        blink_halt("Error setting Line-In gain");
+    else
+        printf("Codec initialized successfully \n");
 }
 
 void initIMU(){
@@ -237,13 +261,13 @@ void initADC(){
     MXC_ADC->intr |= MXC_F_ADC_INTR_REF_READY_IF;//Clearing ADC ref ready interrupt flag
 
     //Conversion init
-    MXC_ADC->ctrl |= 0x3UL << MXC_F_ADC_CTRL_CH_SEL_POS;//Selecting AIN3
+    MXC_ADC->ctrl |= MXC_ADC_CH_4 << MXC_F_ADC_CTRL_CH_SEL_POS;//Selecting AIN4
     MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_SCALE;//No scale
     MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_REF_SCALE;//No scale
     MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_DATA_ALIGN;//LSB data alignment
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done interrupt flag
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IE;//Enabling ADC done interrupt
-
+    
     /* Set up LIMIT3 to monitor low trip points */
     while (MXC_ADC->status & (MXC_F_ADC_STATUS_ACTIVE | MXC_F_ADC_STATUS_AFE_PWR_UP_ACTIVE)) {}
     MXC_ADC_SetMonitorChannel(MXC_ADC_MONITOR_3, ADC_CHANNEL);
@@ -265,6 +289,6 @@ void ADC_IRQHandler(void)
         MXC_ADC->intr |= MXC_F_ADC_INTR_LO_LIMIT_IF;//Clearing flags
         beats++;//Incrementing beats
     }
-    CMic_Val = MXC_ADC->data;
+    CMic_Val = MXC_ADC->data;//Storing contact mic value
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
 }
