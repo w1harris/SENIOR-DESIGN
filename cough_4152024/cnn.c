@@ -97,13 +97,22 @@ void memcpy32(uint32_t *dst, const uint32_t *src, int n)
   }
 }
 
-static const uint32_t kernels[] = KERNELS;
+static const uint32_t kernels[] = KERNELS_COUGH;
 
-int cnn_load_weights(void)
+int cnn_load_weights(int model_config)
 {
   uint32_t len;
   volatile uint32_t *addr;
   const uint32_t *ptr = kernels;
+  if (model_config == 1) {
+    static const uint32_t kernels[] = KERNELS_COUGH;
+    const uint32_t *ptr = kernels;
+  }
+  else if (model_config == 2) {
+    static const uint32_t kernels[] = KERNELS_SPEECH;
+    const uint32_t *ptr = kernels;
+  }
+
 
   while ((addr = (volatile uint32_t *) *ptr++) != 0) {
     *((volatile uint8_t *) ((uint32_t) addr | 1)) = 0x01; // Set address
