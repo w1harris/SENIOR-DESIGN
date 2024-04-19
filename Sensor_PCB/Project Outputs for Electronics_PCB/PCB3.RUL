@@ -1,0 +1,6 @@
+DRC Rules Export File for PCB: E:\ECE484-5\PCB\Main\Electronics_PCB\PCB3.PcbDoc
+RuleKind=Width|RuleName=MaxMinWidth_1|Scope=Board|Minimum=3.54
+RuleKind=SolderMaskExpansion|RuleName=SolderMaskExpansion|Scope=Board|Minimum=4.00
+RuleKind=Width|RuleName=Width|Scope=Board|Minimum=10.00
+RuleKind=ShortCircuit|RuleName=ShortCircuit|Scope=Board|Allowed=0
+RuleKind=Clearance|RuleName=Clearance|Scope=Board|Minimum=10.00
