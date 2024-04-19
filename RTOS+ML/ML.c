@@ -417,10 +417,11 @@ uint8_t runModel(){//Function to run CNN
 
                 if (!ret || out_class == 21) {
                     PR_DEBUG("Nothing Detected");
-                    //send_data("")
+                    //send_data("0");
                 } else {
                     PR_DEBUG("Detected: %s (%0.1f%%)", keywords[out_class], probability);
-                    //uart_bluetooth(10 + out_class);
+                    //send_data("1");
+                    //send_data(10 + out_class);
                     /*else if (model_config == 2) {
                         uart_bluetooth(20 + out_class);                       
                     }*/

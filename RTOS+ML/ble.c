@@ -126,39 +126,11 @@ int uart_bluetooth(int classification)
     uint8_t TxData[BUFF_SIZE];
     uint8_t RxData[BUFF_SIZE];
 
-    printf("\n\n**************** UART Example ******************\n");
-    printf("Now we will send the classification through uart to bluetooth.\n");
-
-    printf("\n-->UART Baud \t: %d Hz\n", UART_BAUD);
-    printf("\n-->Test Length \t: %d bytes\n", BUFF_SIZE);
-
     // Initialize the data buffers
     
     TxData[0] = classification;
 
     memset(RxData, 0x0, BUFF_SIZE);
-
-    MXC_DMA_Init();
-    MXC_DMA_ReleaseChannel(0);
-    MXC_NVIC_SetVector(DMA0_IRQn, DMA_Handler);
-    NVIC_EnableIRQ(DMA0_IRQn);
-
-    // Initialize the UART
-    if ((error = MXC_UART_Init(MXC_UART_GET_UART(bleUART_PORT), UART_BAUD, MXC_UART_APB_CLK)) !=
-        E_NO_ERROR) {
-        printf("-->Error initializing UART: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    if ((error = MXC_UART_Init(MXC_UART_GET_UART(bleUART_PORT), UART_BAUD, MXC_UART_APB_CLK)) !=
-        E_NO_ERROR) {
-        printf("-->Error initializing UART: %d\n", error);
-        printf("-->Example Failed\n");
-        return error;
-    }
-
-    printf("-->UART Initialized\n\n");
 
     mxc_uart_req_t read_req;
     read_req.uart = MXC_UART_GET_UART(bleUART_PORT);
