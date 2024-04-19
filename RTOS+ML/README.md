@@ -1,31 +1,33 @@
 ## Description
 
-A basic getting started application for FreeRTOS.
-
-## Software
-
-### Project Usage
+Main program for device with DEMO mode for automatic startup. If you do not wish to start in DEMO mode comment out the #define in main.c. For a list of commands type "help" on the CLI.
 
 Universal instructions on building, flashing, and debugging this project can be found in the **[MSDK User Guide](https://analog-devices-msdk.github.io/msdk/USERGUIDE/)**.
 
-### Project-Specific Build Notes
+## Hardware
+Ensure all sensors are hooked up properly and all relevant GPIO are correctly set. 
 
-* This project comes pre-configured for the MAX78000EVKIT.  See [Board Support Packages](https://analog-devices-msdk.github.io/msdk/USERGUIDE/#board-support-packages) in the UG for instructions on changing the target board.
+![image](Hookup.PNG)
+![image](Featherboard_connections.PNG)
+### Pin Description
+* ECG output goes to AIN3
+* Contact mic output goes to AIN4
+* All UART2 pins are for adafruit ble device (note: Hardware flow control is currently not configured)
+* LO- is for leads off detection of black ecg lead
+* LO+ is for the blue ecg lead
 
-## Required Connections
+### Sensor Hookup
+If using adafruit development board hookup information is available from **[Sparkfun](https://learn.sparkfun.com/tutorials/ad8232-heart-rate-monitor-hookup-guide)**
+**If using custom sensor pcb, make sure SDN is pulled high to turn the ECG on.**
 
-If using the MAX78000EVKIT (EvKit_V1):
--   Connect a USB cable between the PC and the CN1 (USB/PWR) connector.
--   Connect pins 1 and 2 (P0_1) of the JH1 (UART 0 EN) header.
--   Open a terminal application on the PC and connect to the EV kit's console UART at 115200, 8-N-1.
--   Close jumper JP1 (LED1 EN).
--   Close jumper JP2 (LED2 EN).
+Contact microphone goes on skin to pick up movement/vibrations.
 
-If using the MAX78000FTHR (FTHR_RevA)
--   Connect a USB cable between the PC and the CN1 (USB/PWR) connector.
--	Open a terminal application on the PC and connect to the EV kit's console UART at 115200, 8-N-1.
+## Terminal Debugging
 
-## Expected Output
+To connect to the CLI, open putty or any other serial monitor and connect to the desired COM port using 115200 baud.
+
+
+### Expected Output
 
 The Console UART of the device will output these messages:
 
