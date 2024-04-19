@@ -8,6 +8,7 @@
 volatile unsigned int beats;//Variable to keep track of heart beats
 volatile unsigned int CMic_Val;//Variable to store current ADC reading for CMic
 volatile unsigned int ECG_Val;//Stores current ecg reading
+unsigned int prev = 0;//Previous ecg value
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
@@ -169,12 +170,12 @@ void getIMU(uint8_t magnetometer){
         //Done formatting Accel and Gyro output
 
         //Printing
-        printf("---Gyroscope readings---\nX: %.2f dps\nY: %.2f dps\nZ: %.2f dps\n---Accelerometer readings---\nX: %.2f m/s^2\nY: %.2f m/s^2\nZ: %.2f m/s^2\n", 
+        /*printf("---Gyroscope readings---\nX: %.2f dps\nY: %.2f dps\nZ: %.2f dps\n---Accelerometer readings---\nX: %.2f m/s^2\nY: %.2f m/s^2\nZ: %.2f m/s^2\n", 
         (double)combined_buf[0], (double)combined_buf[1],
         (double)combined_buf[2], (double)combined_buf[3], (double)combined_buf[4], (double)combined_buf[5]);
-
+        */
         //Formatting string
-        sprintf(data, "G: %.2f %.2f %.2f\r\nA: %.2f %.2f %.2f\r\n", (double)combined_buf[0], (double)combined_buf[1], 
+        sprintf(data, "G: %.2f %.2f %.2f A: %.2f %.2f %.2f ", (double)combined_buf[0], (double)combined_buf[1], 
         (double)combined_buf[2], (double)combined_buf[3], (double)combined_buf[4], (double)combined_buf[5]);
         send_data(data);//Sending  Gyro + Accel data over ble
 
@@ -223,11 +224,11 @@ void getIMU(uint8_t magnetometer){
             //Done formatting magnetometer output
 
             //Printing
-            printf("---Magnetometer readings---\nX: %.2f gauss\nY: %.2f gauss\nZ: %.2f gauss\n", 
+            /*printf("---Magnetometer readings---\nX: %.2f gauss\nY: %.2f gauss\nZ: %.2f gauss\n", 
             (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
-        
+            */
             memset(data, 0, 50);//Clearing data
-            sprintf(data, "M: %.2f %.2f %.2f\r\n", (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
+            sprintf(data, "M: %.2f %.2f %.2fZ", (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
             send_data(data);//Transmitting mag data over ble
         }
         rx_buf = buffer_base; 
@@ -287,8 +288,28 @@ void initADC(){
     while (MXC_ADC->status & (MXC_F_ADC_STATUS_ACTIVE | MXC_F_ADC_STATUS_AFE_PWR_UP_ACTIVE)) {}
     MXC_ADC_SetMonitorChannel(MXC_ADC_MONITOR_3, ADC_CHANNEL);
     MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0);
-    MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 250);
+    MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 485);
     MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
+
+    mxc_gpio_cfg_t leads_off;
+    leads_off.port = MXC_GPIO0;
+    leads_off.mask = MXC_GPIO_PIN_5;
+    leads_off.pad = MXC_GPIO_PAD_NONE;
+    leads_off.func = MXC_GPIO_FUNC_IN;
+    MXC_GPIO_Config(&leads_off);//Init LO-
+    leads_off.mask = MXC_GPIO_PIN_6;
+    MXC_GPIO_Config(&leads_off);//Init LO+
+
+    mxc_gpio_cfg_t SDN;
+    SDN.port = MXC_GPIO0;
+    SDN.mask = MXC_GPIO_PIN_8;
+    SDN.pad = MXC_GPIO_PAD_NONE;
+    SDN.func = MXC_GPIO_FUNC_OUT;
+    SDN.vssel = MXC_GPIO_VSSEL_VDDIOH;
+    SDN.drvstr = MXC_GPIO_DRVSTR_0;
+    MXC_GPIO_Config(&SDN);//Init SDN(Allows for low power shutdown mode when not in use)
+
+    MXC_GPIO_OutSet(MXC_GPIO0, MXC_GPIO_PIN_8);//Setting SDN
     return;
 }
 
@@ -300,10 +321,14 @@ void convertADC(){
 //ADC interrupt
 void ADC_IRQHandler(void)
 {//May want to configure this later to use high and low limit to save CPU time
-    if (MXC_ADC->intr & (MXC_F_ADC_INTR_LO_LIMIT_IF /*| MXC_F_ADC_INTR_HI_LIMIT_IF*/)){
+    /*if (MXC_ADC->intr & (MXC_F_ADC_INTR_LO_LIMIT_IF | MXC_F_ADC_INTR_HI_LIMIT_IF)){
         MXC_ADC->intr |= MXC_F_ADC_INTR_LO_LIMIT_IF;//Clearing flags
         beats++;//Incrementing beats
-    }
+    }*/
     ECG_Val = MXC_ADC->data;//Storing contact mic value
+
+    if (ECG_Val < prev*.93) beats++;
+
+    prev = ECG_Val;
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
 }

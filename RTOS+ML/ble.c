@@ -39,8 +39,6 @@ void initBLE(){
     //Clearing buffers
     memset(tx_buf, 0x0, BUFF_SIZE);
     memset(rx_buf, 0x0, BUFF_SIZE);
-    
-    strcpy(tx_buf, "AT\r\n");
 
     reqUART.uart = bleUART;
     reqUART.rxData = rx_buf;
