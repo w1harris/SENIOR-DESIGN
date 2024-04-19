@@ -26,7 +26,11 @@ extern TaskHandle_t cmd_task_id;
 extern volatile unsigned int beats;
 unsigned int oldBeat;
 volatile uint8_t CMic_ON = FALSE;
+volatile uint8_t ECG_ON = FALSE;
 extern volatile unsigned int CMic_Val;
+uint8_t HR = 0;
+
+TickType_t frameStart = 0;//Used to keep track of # of ticks since beginning of HR reading
 //Console UART
 #define CMD_LINE_BUF_SIZE 80
 #define OUTPUT_BUF_SIZE 512
@@ -34,6 +38,10 @@ extern volatile unsigned int CMic_Val;
 //LEDS
 extern SemaphoreHandle_t xGPIOmutex;
 extern mxc_uart_regs_t *ConsoleUART;
+
+//BLE
+extern uint8_t ble_ON;
+extern volatile int DMA_FLAG;
 
 void vTask0(void *pvParameters){
     TickType_t xLastWakeTime;
@@ -112,30 +120,45 @@ void vIMUTask(void *pvParameters){
     TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
 
     while(1){
-        getIMU(TRUE);
+        if (!DMA_FLAG)//Making sure previous sensor data is fully sent
+            getIMU(TRUE);
+    
         vTaskDelayUntil(&lastWakeTime, configTICK_RATE_HZ/2);//Waiting 500 ticks
     }
-
 }
 
 void vADCTask(void *pvParameters){
     TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
     TickType_t ticks = 0;
 
+    frameStart = xTaskGetTickCount();
+
     while(1){
         convertADC();
-        ticks = xTaskGetTickCount();//Gets total number of ticks since system initialization
+        ticks = xTaskGetTickCount() - frameStart;//Gets total number of ticks since beginning of ECG frame
         if (CMic_ON){
             if (CMic_Val > 200){
                 printf("Current ADC value: %d\n", CMic_Val);
+
+                vTaskSuspendAll();//Suspending all tasks for ML to run
+                while(!runModel()){}
+                xTaskResumeAll();//Resuming all tasks
             }
         }
-        else{
+        if (ECG_ON){
             if (oldBeat != beats){
                 printf("Total beats: %d\n", beats);
-                printf("Current bpm: %d\n", 60*beats/(ticks/configTICK_RATE_HZ));
+                HR = 60*beats/(ticks/configTICK_RATE_HZ);
+                printf("Current bpm: %d\n", HR);
                 oldBeat = beats;
-            }
+
+                if (ble_ON){//If bluetooth is on
+                    char *data = calloc(10, sizeof(char));//Allocating space
+                    //Starting string formatting
+                    sprintf(data, "HR: %d", HR);
+                    send_data(data);//Sending ECG data over ble each time heart beats
+                }
+            }  
         }
         xTaskDelayUntil(&lastWakeTime, ADC_WAIT);//Delaying this task for adcFrequency(10 ticks)
     }

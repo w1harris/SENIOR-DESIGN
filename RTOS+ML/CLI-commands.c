@@ -88,6 +88,9 @@
 
 extern int disable_tickless;
 extern volatile uint8_t CMic_ON;
+extern volatile uint8_t ECG_ON;
+
+char *userCommand[4];//Array that holds custom i2c command
 
 /*
  * Defines a command which starts taking heartbeat readings
@@ -100,6 +103,12 @@ static BaseType_t prvECGStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen
  *
  */
 static BaseType_t prvbleStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
+ * Defines a command which allows the user to send a custom UART command
+ *
+ */
+static BaseType_t prvbleCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command which initizalizes the IMU and begins to automatically take readings
@@ -130,6 +139,12 @@ static BaseType_t prvMLStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
  *
  */
 static BaseType_t prvCMicCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
+
+/*
+ * Defines a command which allows for issuing specific I2C commands during runtime
+ *
+ */
+static BaseType_t prvI2CCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString);
 
 /*
  * Defines a command that returns a table showing the state of each task at the
@@ -215,6 +230,13 @@ static const CLI_Command_Definition_t xI2CScan = {
     0//No parameters expected
 };
 
+static const CLI_Command_Definition_t xI2CCommand = {
+    "I2C_Command",
+    "\r\nI2C_Command <R/!W> <Device Addr> <Reg Addr> <Data or Device Addr>:\r\n Issues commands during runtime\r\n\r\n",
+    prvI2CCommand,
+    4//4 parameters expected
+};
+
 static const CLI_Command_Definition_t xECGStart = {
     "ECG_Start",
     "\r\nECG_Start:\r\n Starts taking heartbeat readings\r\n\r\n",
@@ -234,6 +256,13 @@ static const CLI_Command_Definition_t xbleStart = {
     "\r\nBLE_Start:\r\n BLE startup and allows commands to be send to chip\r\n\r\n",
     prvbleStartCommand,
     0//No parameters expected
+};
+
+static const CLI_Command_Definition_t xbleCommand = {
+    "ble",
+    "\r\nble <COMMAND>:\r\n Allows a custom command to be sent to ble device \r\n\r\n",
+    prvbleCommand,
+    1//1 parameters expected
 };
 
 static const CLI_Command_Definition_t xMLContinuous = {//Command to continuously run ML model
@@ -271,22 +300,31 @@ void vRegisterCLICommands(void)
     FreeRTOS_CLIRegisterCommand(&xECGStart);
     FreeRTOS_CLIRegisterCommand(&xIMUStart);
     FreeRTOS_CLIRegisterCommand(&xbleStart);
+    FreeRTOS_CLIRegisterCommand(&xbleCommand);
     FreeRTOS_CLIRegisterCommand(&xMLContinuous);
     FreeRTOS_CLIRegisterCommand(&xMLStart);
     FreeRTOS_CLIRegisterCommand(&xCMic);
+    FreeRTOS_CLIRegisterCommand(&xI2CCommand);
 }
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvECGStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Starting ECG readings...\n");
-    xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+    ECG_ON = TRUE;
+
+    if (!CMic_ON)
+        xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+    
     return pdFALSE;
 }
 
 static BaseType_t prvCMicCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
     printf("Starting Contact Mic readings...\n");
     CMic_ON = TRUE;
-    xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+
+    if (!ECG_ON)
+        xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+    
     return pdFALSE;
 }
 
@@ -299,7 +337,15 @@ static BaseType_t prvbleStartCommand(char *pcWriteBuffer, size_t xWriteBufferLen
 }
 
 static BaseType_t prvbleCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
-    char *pcParameter;
+    BaseType_t lParameterStringLength;
+    char *command = FreeRTOS_CLIGetParameter(
+            pcCommandString, /* The command string itself. */
+            0, /* Return the next parameter. */
+            &lParameterStringLength /* Store the parameter string length. */);
+
+    
+    printf("Issuing command ""%s"" to ble device", command);
+    exeCommand(command);
     return pdFALSE;
 }
 
@@ -319,6 +365,56 @@ static BaseType_t prvI2CScanCommand(char *pcWriteBuffer, size_t xWriteBufferLen,
     I2C_SCAN();
 
     return pdFALSE;
+}
+
+static BaseType_t prvI2CCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){
+    
+    const char *pcParameter;
+    BaseType_t lParameterStringLength, xReturn;
+    static BaseType_t lParameterNumber = 1;
+
+    if (lParameterNumber == 0){
+        /* The first time the function is called after the command has been
+        entered just a header string is returned. */
+        printf("Issuing I2C Command:");
+
+        /* Next time the function is called the first parameter will be echoed
+        back. */
+        lParameterNumber = 1L;
+
+        /* There is more data to be returned as no parameters have been echoed
+        back yet. */
+        xReturn = pdPASS;
+    } else if (lParameterNumber < 5){
+        /* Obtain the parameter string. */
+        pcParameter = FreeRTOS_CLIGetParameter(
+            pcCommandString, /* The command string itself. */
+            lParameterNumber, /* Return the next parameter. */
+            &lParameterStringLength /* Store the parameter string length. */);
+
+        /* Sanity check something was returned. */
+        configASSERT(pcParameter);
+
+        /* Return the parameter string. */
+        memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+        for (int i = 0; i < xWriteBufferLen; i++){
+            
+        }
+
+        snprintf(pcWriteBuffer, xWriteBufferLen, "%d: ", (int)lParameterNumber);
+        strncat(pcWriteBuffer, pcParameter, lParameterStringLength);
+        strncat(pcWriteBuffer, "\r\n", 3);
+
+        lParameterNumber++;
+
+        xReturn = pdPASS;
+    } else{//When all parameters have been printed
+        memset(pcWriteBuffer, 0x00, xWriteBufferLen);
+
+        xReturn = pdFALSE;
+    }
+
+    return xReturn;
 }
 
 static BaseType_t prvMLContCommand(char *pcWriteBuffer, size_t xWriteBufferLen, const char *pcCommandString){

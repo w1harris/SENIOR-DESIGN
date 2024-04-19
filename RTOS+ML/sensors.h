@@ -140,3 +140,5 @@ void I2C_SCAN();
 void initADC();
 //Function to start ADC conversion
 void convertADC();
+//Function for initialization in demo mode
+void DEMO();

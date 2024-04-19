@@ -125,7 +125,8 @@ void i2s_isr(void)
 
 /* **************************************************************************** */
 
-void runModel(){//Function to run CNN
+uint8_t runModel(){//Function to run CNN
+    uint8_t enoughSamples = 0;
   /* Read samples */
     #ifndef ENABLE_MIC_PROCESSING
 
@@ -162,13 +163,13 @@ void runModel(){//Function to run CNN
             __WFI();
     #endif
     #endif // #if SLEEP_MODE == 1
-            return;
+            return enoughSamples;
         }
 
         sampleCounter += CHUNK;
 
         /* wait for at least PREAMBLE_SIZE samples before detecting the utterance */
-        if (sampleCounter < PREAMBLE_SIZE) return;
+        if (sampleCounter < PREAMBLE_SIZE) return enoughSamples;
 
 #ifdef ENABLE_SILENCE_DETECTION // disable to start collecting data immediately.
 
@@ -199,13 +200,14 @@ void runModel(){//Function to run CNN
                 utteranceIndex = micBufIndex;
 
                 ai85Counter += PREAMBLE_SIZE;
-                return;
+                return enoughSamples;
             }
         }
         /* if it is in data collection, add samples to buffer*/
         else if (procState == KEYWORD)
 #endif //#ifdef ENABLE_SILENCE_DETECTION
         {
+            
             uint8_t ret = 0;
 
             /* increment number of stored samples */
@@ -413,6 +415,19 @@ void runModel(){//Function to run CNN
                 }
                 PR_DEBUG("\n----------------------------------------- \n");
 
+                if (!ret || out_class == 21) {
+                    PR_DEBUG("Nothing Detected");
+                    //send_data("0");
+                } else {
+                    PR_DEBUG("Detected: %s (%0.1f%%)", keywords[out_class], probability);
+                    //send_data("1");
+                    //send_data(10 + out_class);
+                    /*else if (model_config == 2) {
+                        uart_bluetooth(20 + out_class);                       
+                    }*/
+                }
+                PR_DEBUG("\n----------------------------------------- \n");
+
                 Max = 0;
                 Min = 0;
                 //------------------------------------------------------------
@@ -427,6 +442,7 @@ void runModel(){//Function to run CNN
     /* Turn off LED2 (Red) */
     LED_Off(LED2);
     //PR_DEBUG("Total Samples:%d, Total Words: %d \n", sampleCounter, wordCounter);
+    return TRUE;
 }
 
 /* **************************************************************************** */

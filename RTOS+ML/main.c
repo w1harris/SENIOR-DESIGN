@@ -65,6 +65,9 @@
 #include "nvic_table.h"
 #include "mxc_sys.h"
 #include "ML.h"
+#include "ble.h"
+
+#define DEMO_MODE
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -161,13 +164,7 @@ int main(void)
     MXC_GPIO_Config(&uart_rts);
 
     //bleON GPIO
-    MXC_UART_Init(bleUART, 115200, 2);//Enabling UART
-    
-    MXC_GPIO_Config(&bleEN);
-    MXC_GPIO_OutClr(bleEN.port, bleEN.mask);//Setting power output to low
-    
-    MXC_GPIO_Config(&bleboot);
-    MXC_GPIO_OutSet(bleboot.port, bleboot.mask);
+    MXC_UART_Init(bleUART, 9600, 2);//Enabling UART
 
     /* Enable incoming characters */
     MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
@@ -179,7 +176,7 @@ int main(void)
     initADC();
 
     //I2C Master Setup
-    //initI2C(); Taken out because of ML setup
+    //initI2C(); //Taken out because of ML setup
 
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);
@@ -201,6 +198,15 @@ int main(void)
             /* Start scheduler */
             printf("Starting scheduler.\n");
             NVIC_EnableIRQ(ADC_IRQn);//Enabling ADC ISR
+
+            #ifdef DEMO_MODE//Used for called specific commands for live demo
+                initBLE();
+
+                DEMO();
+
+                //Start ML
+                xTaskCreate(vMLTask, (const char*)"MLTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
+            #endif
             vTaskStartScheduler();
         }
     }
