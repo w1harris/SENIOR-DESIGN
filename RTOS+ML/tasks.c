@@ -26,6 +26,7 @@ extern TaskHandle_t cmd_task_id;
 extern volatile unsigned int beats;
 unsigned int oldBeat;
 volatile uint8_t CMic_ON = FALSE;
+volatile uint8_t ECG_ON = FALSE;
 extern volatile unsigned int CMic_Val;
 //Console UART
 #define CMD_LINE_BUF_SIZE 80
@@ -34,6 +35,10 @@ extern volatile unsigned int CMic_Val;
 //LEDS
 extern SemaphoreHandle_t xGPIOmutex;
 extern mxc_uart_regs_t *ConsoleUART;
+
+//BLE
+extern uint8_t ble_ON;
+extern volatile int DMA_FLAG;
 
 void vTask0(void *pvParameters){
     TickType_t xLastWakeTime;
@@ -112,10 +117,11 @@ void vIMUTask(void *pvParameters){
     TickType_t lastWakeTime = xTaskGetTickCount();//Storing current time
 
     while(1){
-        getIMU(TRUE);
+        if (!DMA_FLAG)//Making sure previous sensor data is fully sent
+            getIMU(TRUE);
+    
         vTaskDelayUntil(&lastWakeTime, configTICK_RATE_HZ/2);//Waiting 500 ticks
     }
-
 }
 
 void vADCTask(void *pvParameters){
@@ -128,13 +134,23 @@ void vADCTask(void *pvParameters){
         if (CMic_ON){
             if (CMic_Val > 200){
                 printf("Current ADC value: %d\n", CMic_Val);
+
+                vTaskSuspendAll();//Suspending all tasks for ML to run
+                while(!runModel()){}
+                xTaskResumeAll();//Resuming all tasks
             }
         }
-        else{
+        if (ECG_ON){
             if (oldBeat != beats){
                 printf("Total beats: %d\n", beats);
                 printf("Current bpm: %d\n", 60*beats/(ticks/configTICK_RATE_HZ));
                 oldBeat = beats;
+            }
+            if (ble_ON){//If bluetooth is on
+                char *data = calloc(10, sizeof(char));//Allocating space
+                //Starting string formatting
+                sprintf(data, "ECG: %d\r\n", beats);
+                send_data(data);//Sending ECG data over ble
             }
         }
         xTaskDelayUntil(&lastWakeTime, ADC_WAIT);//Delaying this task for adcFrequency(10 ticks)

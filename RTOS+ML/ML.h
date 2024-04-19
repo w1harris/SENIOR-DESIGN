@@ -15,5 +15,5 @@
     printf(fmt, ##args)
 #endif
 
-void runModel();
+uint8_t runModel();
 void init_ML();

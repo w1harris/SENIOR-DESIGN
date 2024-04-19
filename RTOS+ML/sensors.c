@@ -2,9 +2,12 @@
 #include <mxc.h>
 #include <stdlib.h>
 #include "max9867.h"
+#include "ble.h"
+#include <string.h>
 
 volatile unsigned int beats;//Variable to keep track of heart beats
 volatile unsigned int CMic_Val;//Variable to store current ADC reading for CMic
+volatile unsigned int ECG_Val;//Stores current ecg reading
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
@@ -19,7 +22,7 @@ void initI2C(){
     return;
 }
 
-void codec_init(void)
+/*void codec_init(void)
 {
     if (max9867_init(MXC_I2C1, CODEC_MCLOCK, 1) != E_NO_ERROR)
         blink_halt("Error initializing MAX9867 CODEC");
@@ -40,7 +43,7 @@ void codec_init(void)
         blink_halt("Error setting Line-In gain");
     else
         printf("Codec initialized successfully \n");
-}
+}*/
 
 void initIMU(){
     uint8_t rx_buf[1] = {0};//Receive buffer
@@ -108,6 +111,8 @@ int writeIMU(uint8_t reg, uint8_t value){
 }
 
 void getIMU(uint8_t magnetometer){
+    char *data = calloc(50, sizeof(char));//Allocating space
+
     reqMaster.addr = IMU_AccelGyro_ADDR;
     int rx_len = (ZAXIS_G+1) * 2;
     uint8_t tx_buf[1] = {OUT_X_G};
@@ -168,6 +173,11 @@ void getIMU(uint8_t magnetometer){
         (double)combined_buf[0], (double)combined_buf[1],
         (double)combined_buf[2], (double)combined_buf[3], (double)combined_buf[4], (double)combined_buf[5]);
 
+        //Formatting string
+        sprintf(data, "G: %.2f %.2f %.2f\r\nA: %.2f %.2f %.2f\r\n", (double)combined_buf[0], (double)combined_buf[1], 
+        (double)combined_buf[2], (double)combined_buf[3], (double)combined_buf[4], (double)combined_buf[5]);
+        send_data(data);//Sending  Gyro + Accel data over ble
+
         if (magnetometer){//Magnetometer output register reads
 
             rx_buf = buffer_base;//Resetting buffer pointer
@@ -215,11 +225,16 @@ void getIMU(uint8_t magnetometer){
             //Printing
             printf("---Magnetometer readings---\nX: %.2f gauss\nY: %.2f gauss\nZ: %.2f gauss\n", 
             (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
+        
+            memset(data, 0, 50);//Clearing data
+            sprintf(data, "M: %.2f %.2f %.2f\r\n", (double)combined_buf[0], (double)combined_buf[1], (double)combined_buf[3]);
+            send_data(data);//Transmitting mag data over ble
         }
         rx_buf = buffer_base; 
     } else printf("ERROR getting data\n");
 
     free(rx_buf);//Freeing buffer memory
+    free(data);
 }
 
 void I2C_SCAN(){//Called from CLI-commands.c from I2CScan command
@@ -289,6 +304,6 @@ void ADC_IRQHandler(void)
         MXC_ADC->intr |= MXC_F_ADC_INTR_LO_LIMIT_IF;//Clearing flags
         beats++;//Incrementing beats
     }
-    CMic_Val = MXC_ADC->data;//Storing contact mic value
+    ECG_Val = MXC_ADC->data;//Storing contact mic value
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
 }

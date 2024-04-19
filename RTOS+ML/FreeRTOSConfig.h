@@ -50,7 +50,7 @@
  *----------------------------------------------------------*/
 
 //ADC def
-#define ADC_CHANNEL MXC_ADC_CH_3 //ECG uses channel 3 for ADC input
+#define ADC_CHANNEL MXC_ADC_CH_4 
 
 /* CMSIS keeps a global updated with current system clock in Hz */
 #define configCPU_CLOCK_HZ ((uint32_t)IPO_FREQ)

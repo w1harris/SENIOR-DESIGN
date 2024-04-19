@@ -6,3 +6,9 @@
 void initBLE();
 //Function to issue commands to BLE
 void exeCommand(char *command);
+
+void DMA_Handler(void);
+void UART_Handler(void);
+void readCallback(mxc_uart_req_t *req, int error);
+int uart_bluetooth(int classification);
+int send_data(char *data);
