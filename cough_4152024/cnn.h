@@ -74,7 +74,7 @@ int cnn_init(void);
 int cnn_configure(void);
 
 /* Load accelerator weights */
-int cnn_load_weights(void);
+int cnn_load_weights(int model_config);
 
 /* Verify accelerator weights (debug only) */
 int cnn_verify_weights(void);

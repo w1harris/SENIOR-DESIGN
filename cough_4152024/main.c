@@ -123,7 +123,7 @@
 #define CHUNK \
     128 // number of data points to read at a time and average for threshold, keep multiple of 128
 #define TRANSPOSE_WIDTH 128 // width of 2d data model to be used for transpose
-#define NUM_OUTPUTS 2 // number of classes, either no cough or cough
+#define NUM_OUTPUTS 20 // number of classes
 #define I2S_RX_BUFFER_SIZE 64 // I2S buffer size
 #define TFT_BUFF_SIZE 50 // TFT buffer size
 /*-----------------------------*/
@@ -205,7 +205,11 @@ typedef enum _mic_processing_state {
 } mic_processing_state;
 
 /* Set of detected words */
-const char keywords[NUM_OUTPUTS][10] = { "NO_COUGH", "COUGH"};
+const char cough_keywords[20][10] = {"NO_COUGH", "COUGH", "", "", "", "", "", "", "", "", "", "", "", "","", "", "", "", "", ""};
+const char speech_keywords[20][10] = { "UP",   "DOWN", "LEFT",   "RIGHT", "STOP",  "GO",
+                                            "YES",   "NO",   "ON",     "OFF",   "ONE",   "TWO",
+                                            "THREE", "FOUR", "FIVE",   "SIX",   "SEVEN", "EIGHT",
+                                            "NINE",  "ZERO", "Unknown"};
 
 #ifdef SEND_MIC_OUT_SDCARD
 static char fileName[16];
@@ -464,6 +468,8 @@ if (error != E_NO_ERROR) {
 
 int main(void)
 {
+    int model_config = 1; // Changes the weights being loaded into the model
+    
     uint32_t sampleCounter = 0;
     mxc_tmr_unit_t units;
 
@@ -545,8 +551,24 @@ int main(void)
 #endif
     /* Bring state machine into consistent state */
     cnn_init();
+
+    /* Create the Keyword vector */
+    const char keywords[20][10];
+
+    if (model_config == 1) {
+        for (int i = 0; i < 20; i++) {
+            strcpy(keywords[i], cough_keywords[i]);
+            PR_DEBUG("%8s\n", keywords[i]); 
+        }       
+    }
+    else if (model_config == 2) {
+        for (int i = 0; i < 20; i++) {
+            strcpy(keywords[i], speech_keywords[i]);
+            PR_DEBUG("%8s\n", keywords[i]);
+        }
+    }
     /* Load kernels */
-    cnn_load_weights();
+    cnn_load_weights(model_config);
     /* Configure state machine */
     cnn_configure();
 #ifdef SEND_MIC_OUT_SDCARD
@@ -902,7 +924,7 @@ int main(void)
                 PR_DEBUG("\nClassification results:\n");
                 
                 
-                for (int i = 0; i < NUM_OUTPUTS; i++) {
+                for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
                     int digs = (1000 * ml_softmax[i] + 0x4000) >> 15;
                     int tens = digs % 10;
                     digs = digs / 10;
@@ -917,12 +939,30 @@ int main(void)
 
                 PR_DEBUG("----------------------------------------- \n");
                 /* Treat low confidence detections as unknown*/
-                if (!ret || out_class != 1) {
+
+                /* Handle Unknown Inferences */
+                if (model_config == 1) { // Cough Model
+                    if (out_class == 1) {
+                        out_class == 21;
+                    }
+                }
+                else if (model_config == 2) { // Speech Model
+                    if (out_class == sizeof(keywords) / sizeof(keywords[0]) - 1) {
+                        out_class == 21;
+                    }
+                }
+
+                if (!ret || out_class == 21) {
                     PR_DEBUG("Nothing Detected");
                     uart_bluetooth(0);
                 } else {
-                    PR_DEBUG("Detected Cough: %s (%0.1f%%)", keywords[out_class], probability);
-                    uart_bluetooth(1);
+                    PR_DEBUG("Detected: %s (%0.1f%%)", keywords[out_class], probability);
+                    if (model_config == 1) { // cough model
+                        uart_bluetooth(10 + out_class);
+                    }
+                    else if (model_config == 2) {
+                        uart_bluetooth(20 + out_class);                       
+                    }
                 }
                 PR_DEBUG("\n----------------------------------------- \n");
 
@@ -997,7 +1037,7 @@ int main(void)
                     // printf("%d\n", micBuff[(micBufIndex + i) % SAMPLE_SIZE]);
                     snippet[i] = micBuff[(micBufIndex + i) % SAMPLE_SIZE];
                 }
-                if (ret && out_class != NUM_OUTPUTS - 1) {
+                if (ret && out_class != sizeof(keywords) - 1) {
                     // Word detected with high confidence
                     snprintf(fileName, sizeof(fileName), "%04d_%s", fileCount, keywords[out_class]);
                 } else {
