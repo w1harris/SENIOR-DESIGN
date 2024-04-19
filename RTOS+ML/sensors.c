@@ -4,11 +4,19 @@
 #include "max9867.h"
 #include "ble.h"
 #include <string.h>
+#include "tasks.h"
+
+/* FreeRTOS includes. */
+#include "FreeRTOS.h"
+#include "FreeRTOSConfig.h"
+#include "task.h"
 
 volatile unsigned int beats;//Variable to keep track of heart beats
 volatile unsigned int CMic_Val;//Variable to store current ADC reading for CMic
 volatile unsigned int ECG_Val;//Stores current ecg reading
 unsigned int prev = 0;//Previous ecg value
+
+extern volatile uint8_t ECG_ON;
 
 mxc_i2c_req_t reqMaster;//Controlling I2C master registers
 IMU_ctrl_reg imuSetting = {  //Holds current IMU settings
@@ -327,8 +335,23 @@ void ADC_IRQHandler(void)
     }*/
     ECG_Val = MXC_ADC->data;//Storing contact mic value
 
-    if (ECG_Val < prev*.93) beats++;
+    if (ECG_Val < prev*.96) beats++;
 
     prev = ECG_Val;
     MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
+}
+
+void DEMO(){
+    ECG_ON = TRUE;
+
+    //ECG task
+    printf("Starting ECG readings\n");
+    xTaskCreate(vADCTask, (const char*)"ADCTask", 4 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 2, NULL);
+
+    initIMU();
+
+    printf("Starting IMU readings\n");
+    if(!xTaskCreate(vIMUTask, (const char*)"IMUTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 1, NULL)){//Creating IMUTask
+        printf("ERROR creating IMU task\n");
+    }
 }

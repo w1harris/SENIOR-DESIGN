@@ -65,6 +65,9 @@
 #include "nvic_table.h"
 #include "mxc_sys.h"
 #include "ML.h"
+#include "ble.h"
+
+#define DEMO_MODE
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -195,6 +198,15 @@ int main(void)
             /* Start scheduler */
             printf("Starting scheduler.\n");
             NVIC_EnableIRQ(ADC_IRQn);//Enabling ADC ISR
+
+            #ifdef DEMO_MODE//Used for called specific commands for live demo
+                initBLE();
+
+                DEMO();
+
+                //Start ML
+                xTaskCreate(vMLTask, (const char*)"MLTask", 8 * configMINIMAL_STACK_SIZE, NULL,tskIDLE_PRIORITY + 0, NULL);
+            #endif
             vTaskStartScheduler();
         }
     }
