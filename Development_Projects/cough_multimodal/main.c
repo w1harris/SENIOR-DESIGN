@@ -39,10 +39,11 @@
  *
  */
 
-/* **** INCLUDES MACHINE LEARNING DEMO **** */
+/* **** Includes **** */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
 #include "mxc_sys.h"
 #include "fcr_regs.h"
 #include "icc.h"
@@ -72,16 +73,11 @@
 #include "bitmap.h"
 #endif
 #include <math.h>
+#include "gpio.h"
 
-/* **** INCLUDES ECG **** */
-#include "example_config.h"
 
-/* **** VERSION OF THE FILE **** */
 #define VERSION "3.2.3 (5/05/23)" // trained with background noise and more unknown keywords
-
-//------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **** BEGINNING DEFINITIONS FOR MACHINE LEARNING **** */
-
+/* **** Definitions **** */
 #define CLOCK_SOURCE 0 // 0: IPO,  1: ISO, 2: IBRO
 #define SLEEP_MODE 0 // 0: no sleep,  1: sleep,   2:deepsleep(LPM)
 #define WUT_ENABLE 1 // enables WUT timer
@@ -129,7 +125,7 @@
 #define CHUNK \
     128 // number of data points to read at a time and average for threshold, keep multiple of 128
 #define TRANSPOSE_WIDTH 128 // width of 2d data model to be used for transpose
-#define NUM_OUTPUTS 2 // number of classes, either no cough or cough
+#define NUM_OUTPUTS 20 // number of classes
 #define I2S_RX_BUFFER_SIZE 64 // I2S buffer size
 #define TFT_BUFF_SIZE 50 // TFT buffer size
 /*-----------------------------*/
@@ -177,9 +173,7 @@
     printf(fmt, ##args)
 #endif
 
-/* **** ENDING DEFINITIONS FOR MACHINE LEARNING **** */
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **** BEGINNING MACHINE LEARNING GLOBALS **** */
+/* **** Globals **** */
 volatile uint32_t cnn_time; // Stopwatch
 volatile uint32_t fileCount = 0;
 
@@ -213,7 +207,11 @@ typedef enum _mic_processing_state {
 } mic_processing_state;
 
 /* Set of detected words */
-const char keywords[NUM_OUTPUTS][10] = { "NO_COUGH", "COUGH"};
+const char cough_keywords[20][10] = {"NO_COUGH", "COUGH", "", "", "", "", "", "", "", "", "", "", "", "","", "", "", "", "", ""};
+const char speech_keywords[20][10] = { "UP",   "DOWN", "LEFT",   "RIGHT", "STOP",  "GO",
+                                            "YES",   "NO",   "ON",     "OFF",   "ONE",   "TWO",
+                                            "THREE", "FOUR", "FIVE",   "SIX",   "SEVEN", "EIGHT",
+                                            "NINE",  "ZERO", "Unknown"};
 
 #ifdef SEND_MIC_OUT_SDCARD
 static char fileName[16];
@@ -238,82 +236,8 @@ void i2s_isr(void)
     MXC_I2S_ClearFlags(MXC_F_I2S_INTFL_RX_THD_CH0);
 }
 #endif
-/* **** ENDING MACHINE LEARNING GLOBALS **** */
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **** BEGINNING ECG GLOBALS **** */
-#ifdef USE_INTERRUPTS
-volatile unsigned int adc_done = 0;
-volatile unsigned int adc_val = 0;
-volatile unsigned int beat = 0;
-#endif
-/* **** ENDING ECG GLOBALS **** */
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **** ENDING ECG FUNCTION DEFINITIONS **** */
-#ifdef USE_INTERRUPTS
-void adc_complete_cb(void *req, int error)
-{
-    //printf("conversion\n");
-    adc_done = 1;
-    return;
-}
 
-void ADC_IRQHandler(void)
-{
-    if (MXC_ADC->intr & (MXC_F_ADC_INTR_LO_LIMIT_IF /*| MXC_F_ADC_INTR_HI_LIMIT_IF*/)){
-        MXC_ADC->intr |= MXC_F_ADC_INTR_LO_LIMIT_IF;//Clearing flags
-        //MXC_ADC->intr |= MXC_F_ADC_INTR_HI_LIMIT_IF;
-
-        beat++;
-    }
-    adc_val = MXC_ADC->data;
-    MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done flag
-}
-#endif
-
-void convert(){
-    MXC_ADC->ctrl |= MXC_F_ADC_CTRL_START;//Starting ADC converison. Interrupt will be called once done
-    return;
-}
-
-void adc_init() {
-    printf("\n******************** ADC Example ********************\n");
-    printf("\nADC readings are taken on ADC channel %d every 10ms\n", ADC_CHANNEL);
-    printf("and are subsequently printed to the terminal.\n\n");
-    
-    MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_CLK_EN;//Disabling clock
-    MXC_GCR->pclkdiv |= MXC_F_GCR_PCLKDIV_ADCFRQ;//Setting ADC clock freq to 3,333,333(See user manual for options)
-    MXC_GCR->pclkdis0 &= ~MXC_F_GCR_PCLKDIS0_ADC;//Clearing peripheral clock disable reg
-    MXC_ADC->ctrl |= MXC_F_ADC_CTRL_CLK_EN;//Enabling clock
-    MXC_ADC->intr |= MXC_F_ADC_INTR_REF_READY_IF;//Clearing ADC ref ready interrupt flag
-    MXC_ADC->intr |= MXC_F_ADC_INTR_REF_READY_IE;//Enabling ref ready interrupt flag
-    MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_REF_SEL;//Setting 1.22V internal reference
-    MXC_ADC->ctrl |= MXC_F_ADC_CTRL_PWR;//Turning adc on
-    MXC_ADC->ctrl |= MXC_F_ADC_CTRL_REFBUF_PWR;//Turning on internal ref buffer
-    while(!(MXC_ADC->intr & MXC_F_ADC_INTR_REF_READY_IF)){}//Waiting for internal reference to power on
-    MXC_ADC->intr |= MXC_F_ADC_INTR_REF_READY_IF;//Clearing ADC ref ready interrupt flag
-    
-    //Conversion init
-    MXC_ADC->ctrl |= 0x3UL << MXC_F_ADC_CTRL_CH_SEL_POS;//Selecting AIN3
-    MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_SCALE;//No scale
-    MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_REF_SCALE;//No scale
-    MXC_ADC->ctrl &= ~MXC_F_ADC_CTRL_DATA_ALIGN;//LSB data alignment
-    MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IF;//Clearing ADC done interrupt flag
-    MXC_ADC->intr |= MXC_F_ADC_INTR_DONE_IE;//Enabling ADC done interrupt
-
-    /* Set up LIMIT0 to monitor high and low trip points */
-    while (MXC_ADC->status & (MXC_F_ADC_STATUS_ACTIVE | MXC_F_ADC_STATUS_AFE_PWR_UP_ACTIVE)) {}
-    MXC_ADC_SetMonitorChannel(MXC_ADC_MONITOR_3, ADC_CHANNEL);
-    MXC_ADC_SetMonitorHighThreshold(MXC_ADC_MONITOR_3, 0);
-    MXC_ADC_SetMonitorLowThreshold(MXC_ADC_MONITOR_3, 250);
-    MXC_ADC_EnableMonitor(MXC_ADC_MONITOR_3);
-
-    #ifdef USE_INTERRUPTS
-        NVIC_EnableIRQ(ADC_IRQn);
-    #endif
-}
-/* **** ENDING ECG FUNCTION DEFINITIONS **** */
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* **** BEGINNING MACHINE LEARNING FUNCTION PROTOTYPES **** */
+/* **** Functions Prototypes **** */
 #ifdef SEND_MIC_OUT_SDCARD
 extern int sd_init(void);
 extern int mkdirSoundSnippet_CD();
@@ -396,17 +320,194 @@ static uint32_t setColor(int r, int g, int b)
     return color;
 }
 #endif
+/* UART BEGINNING */
+/***** Definitions *****/
+#define DMA
 
-/* **** ENDING MACHINE LEARNING FUNCTION PROTOTYPES **** */
-//-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-/* ***************************************************** */
+#define UART_BAUD 9600
+#define BUFF_SIZE 1
+
+/***** Globals *****/
+volatile int READ_FLAG;
+volatile int DMA_FLAG;
+
+#define READING_UART 2
+#define WRITING_UART 2
+
+/**** Function Prototypes *****/
+void DMA_Handler(void);
+void UART_Handler(void);
+void readCallback(mxc_uart_req_t *req, int error);
+void uart_bluetooth(int classification);
+
+/***** Functions *****/
+#ifdef DMA
+
+void DMA_Handler(void)
+{
+    MXC_DMA_Handler();
+    DMA_FLAG = 0;
+}
+#else
+void UART_Handler(void)
+{
+    MXC_UART_AsyncHandler(MXC_UART_GET_UART(READING_UART));
+}
+#endif
+
+void readCallback(mxc_uart_req_t *req, int error)
+{
+    READ_FLAG = error;
+}
+
+void uart_bluetooth(int classification)
+{
+    int error, i, fail = 0;
+    uint8_t TxData[BUFF_SIZE];
+    uint8_t RxData[BUFF_SIZE];
+
+    printf("\n\n**************** UART Example ******************\n");
+    printf("Now we will send the classification through uart to bluetooth.\n");
+
+    printf("\n-->UART Baud \t: %d Hz\n", UART_BAUD);
+    printf("\n-->Test Length \t: %d bytes\n", BUFF_SIZE);
+
+    // Initialize the data buffers
+    
+    TxData[0] = classification;
+
+    memset(RxData, 0x0, BUFF_SIZE);
+
+#ifdef DMA
+    MXC_DMA_Init();
+    MXC_DMA_ReleaseChannel(0);
+    MXC_NVIC_SetVector(DMA0_IRQn, DMA_Handler);
+    NVIC_EnableIRQ(DMA0_IRQn);
+#else
+    NVIC_ClearPendingIRQ(MXC_UART_GET_IRQ(READING_UART));
+    NVIC_DisableIRQ(MXC_UART_GET_IRQ(READING_UART));
+    MXC_NVIC_SetVector(MXC_UART_GET_IRQ(READING_UART), UART_Handler);
+    NVIC_EnableIRQ(MXC_UART_GET_IRQ(READING_UART));
+#endif
+
+    // Initialize the UART
+    if ((error = MXC_UART_Init(MXC_UART_GET_UART(READING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
+        E_NO_ERROR) {
+        printf("-->Error initializing UART: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    if ((error = MXC_UART_Init(MXC_UART_GET_UART(WRITING_UART), UART_BAUD, MXC_UART_APB_CLK)) !=
+        E_NO_ERROR) {
+        printf("-->Error initializing UART: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    printf("-->UART Initialized\n\n");
+
+    mxc_uart_req_t read_req;
+    read_req.uart = MXC_UART_GET_UART(READING_UART);
+    read_req.rxData = RxData;
+    read_req.rxLen = BUFF_SIZE;
+    read_req.txLen = 0;
+    read_req.callback = readCallback;
+
+    mxc_uart_req_t write_req;
+    write_req.uart = MXC_UART_GET_UART(WRITING_UART);
+    write_req.txData = TxData;
+    write_req.txLen = BUFF_SIZE;
+    write_req.rxLen = 0;
+    write_req.callback = NULL;
+
+    READ_FLAG = 1;
+    DMA_FLAG = 1;
+
+    MXC_UART_ClearRXFIFO(MXC_UART_GET_UART(READING_UART));
+
+#ifdef DMA
+    error = MXC_UART_TransactionDMA(&read_req);
+#else
+    error = MXC_UART_TransactionAsync(&read_req);
+#endif
+
+if (error != E_NO_ERROR) {
+        printf("-->Error starting async read: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    error = MXC_UART_Transaction(&write_req);
+
+    if (error != E_NO_ERROR) {
+        printf("-->Error starting sync write: %d\n", error);
+        printf("-->Example Failed\n");
+        return error;
+    }
+
+    if ((error = memcmp(RxData, TxData, BUFF_SIZE)) != 0) {
+        printf("-->Error verifying Data: %d\n", error);
+        fail++;
+    } else {
+        printf("-->Data verified\n");
+    }
+
+    if (fail != 0) {
+        printf("\n-->Example Failed\n");
+        return E_FAIL;
+    }
+
+    LED_On(LED1); // indicates SUCCESS
+    printf("\n-->Example Succeeded\n");
+    return E_NO_ERROR;
+
+
+}
+/* UART ENDING*/
+/******************************************************************************/
+/* BUTTON BEGGINING */
+
+#define MXC_GPIO_PORT_IN MXC_GPIO1
+#define MXC_GPIO_PIN_IN MXC_GPIO_PIN_7
+
+#define MXC_GPIO_PORT_OUT MXC_GPIO2
+#define MXC_GPIO_PIN_OUT MXC_GPIO_PIN_0
+
+#define MXC_GPIO_PORT_INTERRUPT_IN MXC_GPIO0
+#define MXC_GPIO_PIN_INTERRUPT_IN MXC_GPIO_PIN_2
+
+#define MXC_GPIO_PORT_INTERRUPT_STATUS MXC_GPIO0
+#define MXC_GPIO_PIN_INTERRUPT_STATUS MXC_GPIO_PIN_9
+
+mxc_gpio_cfg_t gpio_in;
+
+void button_init(void);
+
+void button_init(void) {
+
+
+    gpio_in.port = MXC_GPIO_PORT_IN;
+    gpio_in.mask = MXC_GPIO_PIN_IN;
+    gpio_in.pad = MXC_GPIO_PAD_PULL_UP;
+    gpio_in.func = MXC_GPIO_FUNC_IN;
+    gpio_in.vssel = MXC_GPIO_VSSEL_VDDIO;
+    gpio_in.drvstr = MXC_GPIO_DRVSTR_0;
+    MXC_GPIO_Config(&gpio_in);
+
+}
+/* BUTTON ENDING*/
+/* **************************************************************************** */
 
 int main(void)
 {
+    int model_config = 1; // Changes the weights being loaded into the model
+    int model_toggle_flag = 0;
+
     uint32_t sampleCounter = 0;
     mxc_tmr_unit_t units;
 
-    uint8_t pChunkBuff[CHUNK]; // array of mic samples size CHUNK
+    uint8_t pChunkBuff[CHUNK];
 
     uint16_t avg = 0;
     uint16_t ai85Counter = 0;
@@ -423,7 +524,6 @@ int main(void)
     /* Enable cache */
     MXC_ICC_Enable(MXC_ICC0);
 
-    /* Change Clock source depending on above configs */
     switch (CLOCK_SOURCE) {
     case 0:
         MXC_SYS_ClockSourceEnable(MXC_SYS_CLOCK_IPO);
@@ -473,7 +573,7 @@ int main(void)
     /* Configure P2.5, turn on the CNN Boost */
     cnn_boost_enable(MXC_GPIO2, MXC_GPIO_PIN_5);
 
-    PR_INFO("\n\nANALOG DEVICES \nCough Detection Demo\nVer. %s \n", VERSION);
+    PR_INFO("\n\nANALOG DEVICES \nKeyword Spotting Demo\nVer. %s \n", VERSION);
     PR_INFO("\n***** Init *****\n");
     memset(pAI85Buffer, 0x0, sizeof(pAI85Buffer));
 
@@ -483,12 +583,35 @@ int main(void)
     /* SD card support */
     sd_init();
 #endif
+    
     /* Bring state machine into consistent state */
     cnn_init();
+
+    /* Create the Keyword vector */
+    const char keywords[20][10];
+
+    if (model_config == 1) {
+        for (int i = 0; i < 20; i++) {
+            strcpy(keywords[i], cough_keywords[i]);
+            PR_DEBUG("%8s\n", keywords[i]); 
+        }       
+    }
+    else if (model_config == 2) {
+        for (int i = 0; i < 20; i++) {
+            strcpy(keywords[i], speech_keywords[i]);
+            PR_DEBUG("%8s\n", keywords[i]);
+        }
+    }
+
     /* Load kernels */
-    cnn_load_weights();
+    cnn_load_weights(model_config);
+
     /* Configure state machine */
     cnn_configure();
+
+    /* Button Initialization */
+    button_init();
+
 #ifdef SEND_MIC_OUT_SDCARD
     /* Make Incremental Directory */
     if (mkdirSoundSnippet_CD() != E_NO_ERROR) {
@@ -570,6 +693,34 @@ int main(void)
 
     /* Read samples */
     while (1) {
+
+        if (!(MXC_GPIO_InGet(gpio_in.port, gpio_in.mask) >> 7)) {
+            if (model_config == 1) {
+                model_config = 2;
+            }
+            else if (model_config == 2) {
+                model_config = 1;
+            }
+
+            if (model_config == 1) {
+                for (int i = 0; i < 20; i++) {
+                    strcpy(keywords[i], cough_keywords[i]);
+                    PR_DEBUG("%8s\n", keywords[i]); 
+                }       
+            }
+            else if (model_config == 2) {
+                for (int i = 0; i < 20; i++) {
+                    strcpy(keywords[i], speech_keywords[i]);
+                    PR_DEBUG("%8s\n", keywords[i]);
+                }
+            }
+
+            /* Load kernels */
+            cnn_load_weights(model_config);
+
+
+        }
+
 #ifndef ENABLE_MIC_PROCESSING
 
         /* end of test vectors */
@@ -842,7 +993,7 @@ int main(void)
                 PR_DEBUG("\nClassification results:\n");
                 
                 
-                for (int i = 0; i < NUM_OUTPUTS; i++) {
+                for (int i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++) {
                     int digs = (1000 * ml_softmax[i] + 0x4000) >> 15;
                     int tens = digs % 10;
                     digs = digs / 10;
@@ -857,10 +1008,30 @@ int main(void)
 
                 PR_DEBUG("----------------------------------------- \n");
                 /* Treat low confidence detections as unknown*/
-                if (!ret || out_class == NUM_OUTPUTS - 1) {
-                    PR_DEBUG("Detected word: %s", "Unknown");
+
+                /* Handle Unknown Inferences */
+                if (model_config == 1) { // Cough Model
+                    if (out_class == 1) {
+                        out_class == 21;
+                    }
+                }
+                else if (model_config == 2) { // Speech Model
+                    if (out_class == sizeof(keywords) / sizeof(keywords[0]) - 1) {
+                        out_class == 21;
+                    }
+                }
+
+                if (!ret || out_class == 21) {
+                    PR_DEBUG("Nothing Detected");
+                    uart_bluetooth(21);
                 } else {
-                    PR_DEBUG("Detected word: %s (%0.1f%%)", keywords[out_class], probability);
+                    PR_DEBUG("Detected: %s (%0.1f%%)", keywords[out_class], probability);
+                    if (model_config == 1) { // cough model
+                        uart_bluetooth(10 + out_class);
+                    }
+                    else if (model_config == 2) {
+                        uart_bluetooth(20 + out_class);                       
+                    }
                 }
                 PR_DEBUG("\n----------------------------------------- \n");
 
@@ -935,7 +1106,7 @@ int main(void)
                     // printf("%d\n", micBuff[(micBufIndex + i) % SAMPLE_SIZE]);
                     snippet[i] = micBuff[(micBufIndex + i) % SAMPLE_SIZE];
                 }
-                if (ret && out_class != NUM_OUTPUTS - 1) {
+                if (ret && out_class != sizeof(keywords) - 1) {
                     // Word detected with high confidence
                     snprintf(fileName, sizeof(fileName), "%04d_%s", fileCount, keywords[out_class]);
                 } else {

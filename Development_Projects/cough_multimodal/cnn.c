@@ -58,6 +58,12 @@
 #include "cnn.h"
 #include "weights.h"
 
+#include "board.h"
+#include "nvic_table.h"
+#include "sdhc.h"
+#include "uart.h"
+#include <stdlib.h>
+
 void CNN_ISR(void)
 {
   // Acknowledge interrupt to all quadrants
@@ -97,20 +103,70 @@ void memcpy32(uint32_t *dst, const uint32_t *src, int n)
   }
 }
 
-static const uint32_t kernels[] = KERNELS;
-
-int cnn_load_weights(void)
+FATFS FatFs;
+int cnn_load_weights(int model_config)
 {
-  uint32_t len;
-  volatile uint32_t *addr;
-  const uint32_t *ptr = kernels;
 
-  while ((addr = (volatile uint32_t *) *ptr++) != 0) {
-    *((volatile uint8_t *) ((uint32_t) addr | 1)) = 0x01; // Set address
-    len = *ptr++;
-    while (len-- > 0)
-      *addr++ = *ptr++;
+  FIL fil;
+  BYTE line[1];
+  int num;
+  UINT bytes_read;
+
+  int line2;
+  FRESULT fr;
+
+  /* Give a work area to the default drive */
+  f_mount(&FatFs, "", 0);
+
+  /* Open a text file */
+  fr = f_open(&fil, "speech_weights.txt", FA_READ);
+  if (fr) return (int)fr;
+
+  uint32_t kernels[44673];
+
+  if (model_config == 1) {
+    /* Read every line and display it */
+    int multiplier = 1000000000;
+    uint32_t count = 0;
+    int flag = 0;
+    while (flag == 0) {
+        f_read(&fil, line, sizeof(line), &bytes_read);
+        for (int i = 0; i < 1000; i++) {
+            num += (multiplier * ((int)(char)line[i] - 48));
+            multiplier/=10;
+            if ((i + 1) % 10 == 0) {
+              kernels[count] = (uint32_t)num;
+              printf("%d\n", count);
+              count++;
+              multiplier = 1000000000;
+              num = 0;
+            }
+            if (count == 44672) {
+                flag = 1;
+                break;
+            }
+        }
+        if (count == 44672) {
+            break;
+        }
+    }
+
   }
+
+    uint32_t len;
+    volatile uint32_t *addr;
+    // uint32_t *ptr = kernels;
+    uint32_t count = 0;
+    
+    int i = 0;
+    while ((addr = (volatile uint32_t *)kernels[count++]) != 0) {
+      *((volatile uint8_t *)((uint32_t)addr | 1)) = 0x01; // Set address
+      len = kernels[count++];
+      while (len-- > 0) {
+          *addr++ = kernels[count++];
+      }
+
+    }
 
   return CNN_OK;
 }
